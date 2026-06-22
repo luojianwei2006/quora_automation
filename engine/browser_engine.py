@@ -55,7 +55,8 @@ class BrowserEngine:
     def __init__(self, profile: str = "iphone_14_pro_max"):
         self._profile_name = profile
         self._profile = MOBILE_PROFILES.get(profile, IPHONE_14_PRO_MAX)
-        self._screenshot_dir = "/workspace/quora-automation/screenshots"
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self._screenshot_dir = os.path.join(root, "screenshots")
 
         # Threading
         self._cmd_queue: queue.Queue = queue.Queue()

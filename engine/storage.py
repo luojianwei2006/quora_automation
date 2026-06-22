@@ -12,11 +12,13 @@ from typing import Optional
 from engine.models import Recording, RecordedAction, ActionType
 
 
-DATA_DIR = "/workspace/quora-automation/data"
+# Project root = parent of engine/ directory
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(_PROJECT_ROOT, "data")
 PROJECTS_DIR = os.path.join(DATA_DIR, "projects")
 RECORDINGS_DIR = os.path.join(DATA_DIR, "recordings")
 TASKS_DIR = os.path.join(DATA_DIR, "tasks")
-SCREENSHOTS_DIR = "/workspace/quora-automation/screenshots"
+SCREENSHOTS_DIR = os.path.join(_PROJECT_ROOT, "screenshots")
 
 
 def _ensure_dirs():

@@ -7,6 +7,7 @@ import subprocess
 import re
 import time
 import json
+import os
 from typing import Optional
 
 
@@ -157,7 +158,8 @@ class ADBManager:
 
         timestamp = int(time.time() * 1000)
         remote_path = f"/sdcard/screenshot_{timestamp}.png"
-        local_path = f"/workspace/quora-automation/screenshots/device_{timestamp}.png"
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        local_path = os.path.join(root, "screenshots", f"device_{timestamp}.png")
 
         # Take screenshot on device
         self._run_adb(["shell", "screencap", "-p", remote_path], device)
@@ -282,6 +284,3 @@ class ADBManager:
 
 # Singleton instance
 adb_manager = ADBManager()
-
-
-import os  # Required for screenshot path
