@@ -1,102 +1,110 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quora Reply Automation - Dashboard</title>
+    <title>{{ t('app.name') }} - {{ t('dashboard.title') }}</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <nav class="navbar">
-        <div class="nav-brand">🤖 Quora Reply Automation</div>
+        <div class="nav-brand">🤖 {{ t('app.name') }}</div>
         <div class="nav-links">
-            <a href="/" class="active">Dashboard</a>
-            <a href="/browser">Mobile Browser</a>
-            <a href="/recording">Recording Editor</a>
-            <a href="/projects">Projects</a>
-            <a href="/tasks">Tasks</a>
+            <a href="/" class="active">{{ t('nav.dashboard') }}</a>
+            <a href="/browser">{{ t('nav.browser') }}</a>
+            <a href="/recording">{{ t('nav.recording') }}</a>
+            <a href="/projects">{{ t('nav.projects') }}</a>
+            <a href="/tasks">{{ t('nav.tasks') }}</a>
+        </div>
+        <div class="lang-switcher">
+            <button class="lang-btn" onclick="toggleLangMenu()">🌐 {{ supported_languages[current_lang].native }}</button>
+            <div class="lang-dropdown" id="langMenu">
+                {% for code, info in supported_languages.items() %}
+                <div class="lang-option {{ 'active' if code == current_lang }}" onclick="switchLang('{{ code }}')">{{ info.native }}</div>
+                {% endfor %}
+            </div>
         </div>
     </nav>
 
     <div class="container">
         <header class="page-header">
-            <h1>Dashboard</h1>
-            <p>Manage your Quora reply automation workflows</p>
+            <h1>{{ t('dashboard.title') }}</h1>
+            <p>{{ t('dashboard.subtitle') }}</p>
         </header>
 
         <div class="stats-grid" id="statsGrid">
             <div class="stat-card">
                 <div class="stat-value" id="statProjects">0</div>
-                <div class="stat-label">Projects</div>
+                <div class="stat-label">{{ t('dashboard.stats.projects') }}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="statRecordings">0</div>
-                <div class="stat-label">Recordings</div>
+                <div class="stat-label">{{ t('dashboard.stats.recordings') }}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="statTasks">0</div>
-                <div class="stat-label">Tasks</div>
+                <div class="stat-label">{{ t('dashboard.stats.tasks') }}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="statScreenshots">0</div>
-                <div class="stat-label">Screenshots</div>
+                <div class="stat-label">{{ t('dashboard.stats.screenshots') }}</div>
             </div>
         </div>
 
         <div class="card mt-20">
-            <h2>Quick Actions</h2>
+            <h2>{{ t('dashboard.quick_actions') }}</h2>
             <div class="quick-actions">
                 <a href="/browser" class="btn btn-primary">
-                    Open Mobile Browser
+                    {{ t('dashboard.open_browser') }}
                 </a>
                 <a href="/recording" class="btn btn-secondary">
-                    Edit Recording
+                    {{ t('dashboard.edit_recording') }}
                 </a>
                 <a href="/projects" class="btn btn-secondary">
-                    Manage Projects
+                    {{ t('dashboard.manage_projects') }}
                 </a>
                 <button class="btn btn-secondary" onclick="refreshStats()">
-                    Refresh Stats
+                    {{ t('dashboard.refresh') }}
                 </button>
             </div>
         </div>
 
         <div class="card mt-20">
-            <h2>Workflow Guide</h2>
+            <h2>{{ t('dashboard.guide') }}</h2>
             <div class="guide-steps">
                 <div class="guide-step">
                     <span class="step-number">1</span>
                     <div>
-                        <strong>Create a Project</strong>
-                        <p>Set up parameter templates for your automation</p>
+                        <strong>{{ t('dashboard.guide.step1') }}</strong>
+                        <p>{{ t('dashboard.guide.desc1') }}</p>
                     </div>
                 </div>
                 <div class="guide-step">
                     <span class="step-number">2</span>
                     <div>
-                        <strong>Record Actions</strong>
-                        <p>Use the Mobile Browser to navigate and record your workflow</p>
+                        <strong>{{ t('dashboard.guide.step2') }}</strong>
+                        <p>{{ t('dashboard.guide.desc2') }}</p>
                     </div>
                 </div>
                 <div class="guide-step">
                     <span class="step-number">3</span>
                     <div>
-                        <strong>Edit &amp; Refine</strong>
-                        <p>Adjust delays, parameters, and completion checks</p>
+                        <strong>{{ t('dashboard.guide.step3') }}</strong>
+                        <p>{{ t('dashboard.guide.desc3') }}</p>
                     </div>
                 </div>
                 <div class="guide-step">
                     <span class="step-number">4</span>
                     <div>
-                        <strong>Create Tasks &amp; Run</strong>
-                        <p>Fill in project parameters and execute the automation</p>
+                        <strong>{{ t('dashboard.guide.step4') }}</strong>
+                        <p>{{ t('dashboard.guide.desc4') }}</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="card mt-20">
-            <h2>Recent Screenshots</h2>
+            <h2>{{ t('dashboard.recent_screenshots') }}</h2>
             <div class="screenshot-grid" id="recentScreenshots"></div>
         </div>
     </div>

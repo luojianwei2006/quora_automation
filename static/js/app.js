@@ -70,6 +70,34 @@ async function apiDelete(path) {
     return res.json();
 }
 
+// ─── Language Switcher ───────────────────────────────────
+
+function toggleLangMenu() {
+    const menu = document.getElementById('langMenu');
+    if (menu) menu.classList.toggle('show');
+}
+
+// Close language menu when clicking outside
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('langMenu');
+    if (menu && !e.target.closest('.lang-switcher')) {
+        menu.classList.remove('show');
+    }
+});
+
+async function switchLang(code) {
+    try {
+        await fetch('/api/lang/set', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lang: code})
+        });
+        window.location.reload();
+    } catch(e) {
+        console.error('Language switch error:', e);
+    }
+}
+
 // ─── Notification Toast ─────────────────────────────────
 
 function showToast(message, type = 'info') {

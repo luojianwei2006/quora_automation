@@ -11,7 +11,8 @@ from pathlib import Path
 os.environ.pop("NODE_OPTIONS", None)
 
 from flask import (
-    Flask, render_template, request, jsonify, send_from_directory, Response, stream_with_context
+    Flask, render_template, request, jsonify, send_from_directory, Response,
+    stream_with_context, make_response
 )
 from flask_socketio import SocketIO, emit
 
@@ -20,6 +21,7 @@ from engine.models import Recording, RecordedAction, ActionType
 from engine.player import PlayerEngine
 from engine import storage
 from engine.adb_manager import adb_manager
+from engine.i18n import I18n, t as _t, SUPPORTED_LANGUAGES
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["SECRET_KEY"] = os.urandom(24)
@@ -664,6 +666,34 @@ def handle_browser_screenshot():
             emit("browser:screenshot_result", {"screenshot": screenshot})
         except Exception as e:
             emit("browser:error", {"error": str(e)})
+
+
+# ─── I18n / Language Support ────────────────────────────────────
+
+@app.context_processor
+def inject_i18n():
+    """Inject translation function and language info into all templates."""
+    lang = request.cookies.get("lang", "en")
+    if lang not in SUPPORTED_LANGUAGES:
+        lang = "en"
+    i18n = I18n(lang)
+    return {
+        "t": i18n.translate,
+        "current_lang": lang,
+        "supported_languages": SUPPORTED_LANGUAGES,
+    }
+
+
+@app.route("/api/lang/set", methods=["POST"])
+def api_lang_set():
+    """Set language preference via cookie."""
+    data = request.get_json() or {}
+    lang = data.get("lang", "en")
+    if lang not in SUPPORTED_LANGUAGES:
+        lang = "en"
+    resp = make_response(jsonify({"status": "ok", "lang": lang}))
+    resp.set_cookie("lang", lang, max_age=365*24*3600)  # 1 year
+    return resp
 
 
 # ─── ADB Management API ─────────────────────────────────────────
