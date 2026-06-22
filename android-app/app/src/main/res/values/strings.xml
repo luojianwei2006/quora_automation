@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Quora Automation</string>
+    <string name="url_hint">Enter URL...</string>
+    <string name="recording_started">Recording started</string>
+    <string name="recording_stopped">Recording stopped</string>
+    <string name="recorded_action">Recorded: %1$s at (%2$d, %3$d)</string>
+    <string name="overlay_permission">Please grant overlay permission for the cursor to work properly.</string>
+    <string name="server_connected">Connected to server</string>
+    <string name="server_disconnected">Connection failed</string>
+</resources>

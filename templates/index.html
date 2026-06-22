@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quora Reply Automation - Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 Quora Reply Automation</div>
+        <div class="nav-links">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/browser">Mobile Browser</a>
+            <a href="/recording">Recording Editor</a>
+            <a href="/projects">Projects</a>
+            <a href="/tasks">Tasks</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <h1>Dashboard</h1>
+            <p>Manage your Quora reply automation workflows</p>
+        </header>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value" id="statProjects">0</div>
+                <div class="stat-label">Projects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statRecordings">0</div>
+                <div class="stat-label">Recordings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statTasks">0</div>
+                <div class="stat-label">Tasks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statScreenshots">0</div>
+                <div class="stat-label">Screenshots</div>
+            </div>
+        </div>
+
+        <div class="card mt-20">
+            <h2>Quick Actions</h2>
+            <div class="quick-actions">
+                <a href="/browser" class="btn btn-primary">
+                    Open Mobile Browser
+                </a>
+                <a href="/recording" class="btn btn-secondary">
+                    Edit Recording
+                </a>
+                <a href="/projects" class="btn btn-secondary">
+                    Manage Projects
+                </a>
+                <button class="btn btn-secondary" onclick="refreshStats()">
+                    Refresh Stats
+                </button>
+            </div>
+        </div>
+
+        <div class="card mt-20">
+            <h2>Workflow Guide</h2>
+            <div class="guide-steps">
+                <div class="guide-step">
+                    <span class="step-number">1</span>
+                    <div>
+                        <strong>Create a Project</strong>
+                        <p>Set up parameter templates for your automation</p>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-number">2</span>
+                    <div>
+                        <strong>Record Actions</strong>
+                        <p>Use the Mobile Browser to navigate and record your workflow</p>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-number">3</span>
+                    <div>
+                        <strong>Edit &amp; Refine</strong>
+                        <p>Adjust delays, parameters, and completion checks</p>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-number">4</span>
+                    <div>
+                        <strong>Create Tasks &amp; Run</strong>
+                        <p>Fill in project parameters and execute the automation</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-20">
+            <h2>Recent Screenshots</h2>
+            <div class="screenshot-grid" id="recentScreenshots"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+        async function refreshStats() {
+            try {
+                const [projRes, recRes, taskRes, shotRes] = await Promise.all([
+                    fetch('/api/projects'),
+                    fetch('/api/recordings'),
+                    fetch('/api/tasks'),
+                    fetch('/api/screenshots?limit=8'),
+                ]);
+                const proj = await projRes.json();
+                const rec = await recRes.json();
+                const task = await taskRes.json();
+                const shots = await shotRes.json();
+
+                document.getElementById('statProjects').textContent = (proj.projects || []).length;
+                document.getElementById('statRecordings').textContent = (rec.recordings || []).length;
+                document.getElementById('statTasks').textContent = (task.tasks || []).length;
+                document.getElementById('statScreenshots').textContent = (shots.screenshots || []).length;
+
+                const grid = document.getElementById('recentScreenshots');
+                grid.innerHTML = '';
+                (shots.screenshots || []).slice(0, 8).forEach(s => {
+                    const img = document.createElement('div');
+                    img.className = 'screenshot-thumb';
+                    img.innerHTML = `<img src="/screenshots/${s.filename}" alt="Screenshot">`;
+                    grid.appendChild(img);
+                });
+            } catch(e) { console.error('Stats refresh error:', e); }
+        }
+
+        refreshStats();
+    </script>
+</body>
+</html>

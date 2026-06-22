@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projects - Quora Reply Automation</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 Quora Reply Automation</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/browser">Mobile Browser</a>
+            <a href="/recording">Recording Editor</a>
+            <a href="/projects" class="active">Projects</a>
+            <a href="/tasks">Tasks</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <h1>📂 Projects</h1>
+            <p>Manage automation projects and parameter templates</p>
+            <button class="btn btn-primary" onclick="showCreateProject()">+ New Project</button>
+        </header>
+
+        <div class="card">
+            <div id="projectList"></div>
+            <div id="noProjects" style="text-align:center;padding:40px;color:#666;">
+                No projects yet. Create your first project to get started.
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Project Modal -->
+    <div class="modal" id="projectModal">
+        <div class="modal-content">
+            <h3 id="projectModalTitle">New Project</h3>
+            <input type="hidden" id="editProjectId">
+            <div class="form-group">
+                <label>Project Name</label>
+                <input id="projName" placeholder="e.g., Quora Tech Reply">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="projDesc" placeholder="Project description"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Parameter Template (JSON) — defines variables for this project</label>
+                <textarea id="projParams" style="min-height:200px;font-family:monospace;font-size:12px;"></textarea>
+                <small style="color:#666;">Edit the JSON template above. Each key is a parameter name, value defines label/type/default/required.</small>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeProjectModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveProject()">💾 Save Project</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        let currentProjects = [];
+
+        async function loadProjects() {
+            try {
+                const res = await fetch('/api/projects');
+                const data = await res.json();
+                currentProjects = data.projects || [];
+                renderProjects();
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        function renderProjects() {
+            const container = document.getElementById('projectList');
+            const empty = document.getElementById('noProjects');
+
+            if (currentProjects.length === 0) {
+                container.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+
+            container.innerHTML = currentProjects.map(p => `
+                <div class="project-card">
+                    <div class="project-header">
+                        <h3>${p.name}</h3>
+                        <div class="project-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="editProject('${p.id}')">✏ Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}')">🗑 Delete</button>
+                            <button class="btn btn-sm btn-primary" onclick="viewRecordings('${p.id}')">📋 Recordings</button>
+                            <button class="btn btn-sm btn-success" onclick="createTaskFromProject('${p.id}')">▶ New Task</button>
+                        </div>
+                    </div>
+                    <p class="project-desc">${p.description || 'No description'}</p>
+                    <div class="project-meta">
+                        <span>Recordings: ${(p.recordings || []).length}</span>
+                        <span>Params: ${Object.keys(p.param_template || {}).length}</span>
+                        <span>Created: ${formatDate(p.created_at)}</span>
+                    </div>
+                    ${p.param_template ? `
+                    <div class="param-list">
+                        ${Object.entries(p.param_template).map(([key, val]) => `
+                            <span class="param-tag">${key}: ${val.label || key}</span>
+                        `).join('')}
+                    </div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function showCreateProject() {
+            document.getElementById('editProjectId').value = '';
+            document.getElementById('projectModalTitle').textContent = 'New Project';
+            document.getElementById('projName').value = '';
+            document.getElementById('projDesc').value = '';
+
+            // Load default template
+            fetch('/api/projects/default-template')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('projParams').value =
+                        JSON.stringify(data.template || {}, null, 2);
+                });
+
+            document.getElementById('projectModal').classList.add('show');
+        }
+
+        async function editProject(id) {
+            const p = currentProjects.find(x => x.id === id);
+            if (!p) return;
+            document.getElementById('editProjectId').value = id;
+            document.getElementById('projectModalTitle').textContent = 'Edit Project';
+            document.getElementById('projName').value = p.name || '';
+            document.getElementById('projDesc').value = p.description || '';
+            document.getElementById('projParams').value =
+                JSON.stringify(p.param_template || {}, null, 2);
+            document.getElementById('projectModal').classList.add('show');
+        }
+
+        function closeProjectModal() {
+            document.getElementById('projectModal').classList.remove('show');
+        }
+
+        async function saveProject() {
+            const id = document.getElementById('editProjectId').value;
+            const name = document.getElementById('projName').value.trim();
+            const desc = document.getElementById('projDesc').value.trim();
+            let paramTemplate;
+            try {
+                paramTemplate = JSON.parse(document.getElementById('projParams').value);
+            } catch(e) {
+                alert('Invalid JSON in parameter template: ' + e.message);
+                return;
+            }
+
+            if (!name) { alert('Project name is required'); return; }
+
+            try {
+                let res;
+                if (id) {
+                    res = await fetch(`/api/projects/${id}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, description: desc, param_template: paramTemplate})
+                    });
+                } else {
+                    res = await fetch('/api/projects', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, description: desc, param_template: paramTemplate})
+                    });
+                }
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    closeProjectModal();
+                    loadProjects();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown'));
+                }
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        async function deleteProject(id) {
+            if (!confirm('Delete this project and all associated data?')) return;
+            try {
+                await fetch(`/api/projects/${id}`, {method: 'DELETE'});
+                loadProjects();
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function viewRecordings(projectId) {
+            window.location.href = `/recording?project_id=${projectId}`;
+        }
+
+        function createTaskFromProject(projectId) {
+            window.location.href = `/tasks?project_id=${projectId}`;
+        }
+
+        function formatDate(d) {
+            if (!d) return '';
+            return new Date(d).toLocaleDateString('en-US', {
+                year: 'numeric', month: 'short', day: 'numeric'
+            });
+        }
+
+        loadProjects();
+    </script>
+</body>
+</html>

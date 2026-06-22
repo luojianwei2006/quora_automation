@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasks - Quora Reply Automation</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 Quora Reply Automation</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/browser">Mobile Browser</a>
+            <a href="/recording">Recording Editor</a>
+            <a href="/projects">Projects</a>
+            <a href="/tasks" class="active">Tasks</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <h1>📋 Tasks</h1>
+            <p>Create and run automation tasks with project parameters</p>
+            <button class="btn btn-primary" onclick="showCreateTask()">+ New Task</button>
+        </header>
+
+        <div class="card">
+            <div id="taskList"></div>
+            <div id="noTasks" style="text-align:center;padding:40px;color:#666;">
+                No tasks yet. Create a task to run your automation.
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Task Modal -->
+    <div class="modal" id="taskModal">
+        <div class="modal-content">
+            <h3 id="taskModalTitle">New Task</h3>
+            <input type="hidden" id="editTaskId">
+            <div class="form-group">
+                <label>Task Name</label>
+                <input id="taskName" placeholder="e.g., Reply to Python questions">
+            </div>
+            <div class="form-group">
+                <label>Project</label>
+                <select id="taskProject" onchange="onProjectChange()">
+                    <option value="">Select a project...</option>
+                </select>
+            </div>
+            <div id="taskParamsSection" style="display:none;">
+                <h4 style="color:#fff;margin:12px 0 8px;">Parameters</h4>
+                <div id="taskParamsFields"></div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeTaskModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveTask()">💾 Save & Run</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div class="modal" id="taskDetailModal">
+        <div class="modal-content" style="max-width:800px;">
+            <h3 id="detailTitle">Task Details</h3>
+            <div id="taskDetailContent"></div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="document.getElementById('taskDetailModal').classList.remove('show')">Close</button>
+                <button class="btn btn-primary" id="runTaskBtn" onclick="runTask()">▶ Run Task</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+        const socket = io();
+        let currentTasks = [];
+        let currentProjects = [];
+        let selectedTaskId = null;
+        let editMode = false;
+
+        async function loadTasks() {
+            try {
+                const [taskRes, projRes] = await Promise.all([
+                    fetch('/api/tasks'),
+                    fetch('/api/projects')
+                ]);
+                const taskData = await taskRes.json();
+                const projData = await projRes.json();
+                currentTasks = taskData.tasks || [];
+                currentProjects = projData.projects || [];
+                renderTasks();
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('taskList');
+            const empty = document.getElementById('noTasks');
+
+            if (currentTasks.length === 0) {
+                container.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+
+            container.innerHTML = currentTasks.map(t => {
+                const statusClass = {
+                    'pending': 'status-pending',
+                    'running': 'status-running',
+                    'completed': 'status-completed',
+                    'failed': 'status-failed'
+                }[t.status] || 'status-pending';
+
+                const results = t.results || [];
+                const passed = results.filter(r => r.success).length;
+                const total = results.length;
+
+                return `
+                <div class="task-card" onclick="showTaskDetail('${t.id}')">
+                    <div class="task-header">
+                        <h3>${t.name}</h3>
+                        <span class="${statusClass}">${t.status}</span>
+                    </div>
+                    <div class="task-meta">
+                        <span>Project: ${t.project_name || t.project_id || 'N/A'}</span>
+                        <span>Params: ${Object.keys(t.params || {}).length}</span>
+                        ${total > 0 ? `<span>Results: ${passed}/${total} passed</span>` : ''}
+                        <span>Created: ${formatDate(t.created_at)}</span>
+                    </div>
+                    <div class="task-actions">
+                        <button class="btn btn-sm btn-success" onclick="event.stopPropagation();runExistingTask('${t.id}')">▶ Run</button>
+                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteTask('${t.id}')">🗑</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function showCreateTask() {
+            editMode = false;
+            document.getElementById('editTaskId').value = '';
+            document.getElementById('taskModalTitle').textContent = 'New Task';
+            document.getElementById('taskName').value = '';
+            document.getElementById('taskParamsSection').style.display = 'none';
+
+            const select = document.getElementById('taskProject');
+            select.innerHTML = '<option value="">Select a project...</option>' +
+                currentProjects.map(p =>
+                    `<option value="${p.id}">${p.name}</option>`
+                ).join('');
+
+            // Check URL param
+            const urlParams = new URLSearchParams(window.location.search);
+            const projId = urlParams.get('project_id');
+            if (projId) select.value = projId;
+            if (projId) onProjectChange();
+
+            document.getElementById('taskModal').classList.add('show');
+        }
+
+        function onProjectChange() {
+            const projectId = document.getElementById('taskProject').value;
+            const section = document.getElementById('taskParamsSection');
+            const fields = document.getElementById('taskParamsFields');
+
+            if (!projectId) {
+                section.style.display = 'none';
+                return;
+            }
+
+            const project = currentProjects.find(p => p.id === projectId);
+            if (!project || !project.param_template) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            const tmpl = project.param_template;
+            fields.innerHTML = Object.entries(tmpl).map(([key, def]) => {
+                const val = def.default || '';
+                if (def.type === 'textarea') {
+                    return `
+                        <div class="form-group">
+                            <label>${def.label || key} ${def.required ? '<span style="color:#f44336;">*</span>' : ''}</label>
+                            <textarea id="param_${key}" placeholder="${def.description || ''}">${val}</textarea>
+                        </div>`;
+                }
+                return `
+                    <div class="form-group">
+                        <label>${def.label || key} ${def.required ? '<span style="color:#f44336;">*</span>' : ''}</label>
+                        <input id="param_${key}" type="${def.type || 'text'}" value="${val}" placeholder="${def.description || ''}">
+                    </div>`;
+            }).join('');
+        }
+
+        async function saveTask() {
+            const id = document.getElementById('editTaskId').value;
+            const name = document.getElementById('taskName').value.trim();
+            const projectId = document.getElementById('taskProject').value;
+
+            if (!name) { alert('Task name is required'); return; }
+            if (!projectId) { alert('Please select a project'); return; }
+
+            // Collect params
+            const project = currentProjects.find(p => p.id === projectId);
+            const params = {};
+            if (project && project.param_template) {
+                Object.keys(project.param_template).forEach(key => {
+                    const el = document.getElementById(`param_${key}`);
+                    if (el) params[key] = el.value;
+                });
+            }
+
+            try {
+                const res = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, project_id: projectId, params})
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    closeTaskModal();
+                    loadTasks();
+                    // Auto-run the task
+                    runExistingTask(data.task.id);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown'));
+                }
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.remove('show');
+        }
+
+        async function showTaskDetail(id) {
+            selectedTaskId = id;
+            try {
+                const res = await fetch(`/api/tasks/${id}`);
+                const data = await res.json();
+                if (data.status !== 'ok') return;
+                const t = data.task;
+
+                document.getElementById('detailTitle').textContent = t.name;
+
+                const results = t.results || [];
+                const passed = results.filter(r => r.success).length;
+
+                document.getElementById('taskDetailContent').innerHTML = `
+                    <div class="task-info">
+                        <p><strong>Project:</strong> ${t.project_name || t.project_id}</p>
+                        <p><strong>Status:</strong> <span class="status-${t.status}">${t.status}</span></p>
+                        <p><strong>Created:</strong> ${formatDate(t.created_at)}</p>
+                        <p><strong>Updated:</strong> ${formatDate(t.updated_at)}</p>
+                    </div>
+
+                    <h4 style="color:#fff;margin:12px 0 8px;">Parameters</h4>
+                    <div class="param-grid">
+                        ${Object.entries(t.params || {}).map(([k, v]) =>
+                            `<div><strong>${k}:</strong> ${v || '(empty)'}</div>`
+                        ).join('')}
+                    </div>
+
+                    ${results.length > 0 ? `
+                    <h4 style="color:#fff;margin:12px 0 8px;">Results (${passed}/${results.length})</h4>
+                    <div class="result-list">
+                        ${results.map((r, i) => `
+                            <div class="result-item ${r.success ? 'result-pass' : 'result-fail'}">
+                                <span>#${i+1}: ${r.action_type}</span>
+                                <span>${r.success ? '✅' : '❌'}</span>
+                                <span>${(r.duration_ms/1000).toFixed(1)}s</span>
+                                ${r.error ? `<span class="result-error">${r.error}</span>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>` : '<p style="color:#666;margin-top:8px;">No results yet. Run the task.</p>'}
+
+                    <h4 style="color:#fff;margin:12px 0 8px;">Screenshots</h4>
+                    <div class="screenshot-grid" id="taskScreenshots">
+                        ${results.filter(r => r.screenshot).map(r =>
+                            `<div class="screenshot-thumb"><img src="${r.screenshot}" alt="Step ${r.index+1}"></div>`
+                        ).join('')}
+                        ${results.filter(r => r.screenshot).length === 0 ? '<p style="color:#666;">No screenshots captured.</p>' : ''}
+                    </div>
+                `;
+
+                document.getElementById('runTaskBtn').textContent = t.status === 'running' ? '⏳ Running...' : '▶ Run Task';
+                document.getElementById('taskDetailModal').classList.add('show');
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        async function runExistingTask(id) {
+            selectedTaskId = id;
+            await runTask();
+        }
+
+        async function runTask() {
+            if (!selectedTaskId) return;
+            const btn = document.getElementById('runTaskBtn');
+            btn.textContent = '⏳ Starting...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/tasks/${selectedTaskId}/run`, {method: 'POST'});
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    btn.textContent = '⏳ Running...';
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown'));
+                    btn.textContent = '▶ Run Task';
+                    btn.disabled = false;
+                }
+            } catch(e) {
+                alert('Error: ' + e.message);
+                btn.textContent = '▶ Run Task';
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteTask(id) {
+            if (!confirm('Delete this task?')) return;
+            try {
+                await fetch(`/api/tasks/${id}`, {method: 'DELETE'});
+                loadTasks();
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        // Socket events for live updates
+        socket.on('task:step', (data) => {
+            if (data.task_id === selectedTaskId) {
+                const content = document.getElementById('taskDetailContent');
+                if (content) {
+                    // Refresh detail view
+                    showTaskDetail(selectedTaskId);
+                }
+            }
+            // Refresh task list
+            loadTasks();
+        });
+
+        socket.on('task:complete', (data) => {
+            const btn = document.getElementById('runTaskBtn');
+            if (btn) { btn.textContent = '▶ Run Task'; btn.disabled = false; }
+            loadTasks();
+            if (data.task_id === selectedTaskId) {
+                showTaskDetail(selectedTaskId);
+            }
+        });
+
+        socket.on('task:error', (data) => {
+            const btn = document.getElementById('runTaskBtn');
+            if (btn) { btn.textContent = '▶ Run Task'; btn.disabled = false; }
+            alert('Task error: ' + data.error);
+            loadTasks();
+        });
+
+        function formatDate(d) {
+            if (!d) return '';
+            return new Date(d).toLocaleDateString('en-US', {
+                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        loadTasks();
+    </script>
+</body>
+</html>

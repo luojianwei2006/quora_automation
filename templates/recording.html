@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recording Editor - Quora Reply Automation</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .editor-layout {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            min-height: calc(100vh - 80px);
+        }
+        .editor-main {
+            flex: 1;
+        }
+        .editor-sidebar {
+            width: 400px;
+            flex-shrink: 0;
+        }
+
+        .action-editor-card {
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .action-editor-card .ae-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .action-editor-card .ae-type {
+            color: #2196F3;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .action-editor-card .ae-remove {
+            color: #f44336;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        .action-editor-card .ae-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .action-editor-card .ae-fields .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .recording-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .screenshot-preview {
+            margin-top: 12px;
+        }
+        .screenshot-preview img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 Quora Reply Automation</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/browser">Mobile Browser</a>
+            <a href="/recording" class="active">Recording Editor</a>
+            <a href="/projects">Projects</a>
+            <a href="/tasks">Tasks</a>
+        </div>
+    </nav>
+
+    <div class="editor-layout">
+        <div class="editor-main">
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h2 style="margin:0;">✏ Recording Editor</h2>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input id="recName" value="Quora Reply Workflow" style="padding:6px 10px;background:#2d2d2d;border:1px solid #444;border-radius:6px;color:#fff;width:200px;">
+                        <select id="recProject" style="padding:6px 10px;background:#2d2d2d;border:1px solid #444;border-radius:6px;color:#fff;">
+                            <option value="">No project</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="recording-toolbar">
+                    <button class="btn btn-sm btn-primary" onclick="loadRecordingUI()">📂 Load</button>
+                    <button class="btn btn-sm btn-success" onclick="saveRecordingEditor()">💾 Save</button>
+                    <button class="btn btn-sm btn-danger" onclick="clearAllActions()">🗑 Clear All</button>
+                    <button class="btn btn-sm btn-secondary" onclick="addEmptyAction()">+ Add Step</button>
+                    <span style="color:#666;font-size:12px;margin-left:8px;" id="stepCount">0 steps</span>
+                </div>
+
+                <div id="actionsEditor"></div>
+                <div id="noActions" style="text-align:center;padding:40px;color:#666;">
+                    No actions yet. Record actions from the <a href="/browser" style="color:#2196F3;">Mobile Browser</a> or add steps manually.
+                </div>
+            </div>
+        </div>
+
+        <div class="editor-sidebar">
+            <div class="card">
+                <h3>Step Detail</h3>
+                <div id="stepDetail">
+                    <p style="color:#666;">Select an action to edit its parameters</p>
+                </div>
+            </div>
+            <div class="card mt-12">
+                <h3>Screenshots</h3>
+                <div id="editorScreenshots" class="screenshot-grid">
+                    <p style="color:#666;">Run playback to see screenshots</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+        let editorActions = [];
+        let selectedEditorIdx = -1;
+        let currentRecordings = [];
+        let currentProjects = [];
+
+        async function init() {
+            // Load projects for dropdown
+            const projRes = await fetch('/api/projects');
+            const projData = await projRes.json();
+            currentProjects = projData.projects || [];
+            const select = document.getElementById('recProject');
+            select.innerHTML = '<option value="">No project</option>' +
+                currentProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+            // Check URL param
+            const urlParams = new URLSearchParams(window.location.search);
+            const projId = urlParams.get('project_id');
+            if (projId) select.value = projId;
+
+            // Load current recording from server
+            const recRes = await fetch('/api/recording/current');
+            const recData = await recRes.json();
+            if (recData.status === 'ok' && recData.recording) {
+                const rec = recData.recording;
+                document.getElementById('recName').value = rec.name || 'Untitled';
+                editorActions = (rec.actions || []).map(a => ({...a}));
+                renderEditorActions();
+            }
+        }
+
+        function renderEditorActions() {
+            const container = document.getElementById('actionsEditor');
+            const empty = document.getElementById('noActions');
+
+            if (editorActions.length === 0) {
+                container.innerHTML = '';
+                empty.style.display = 'block';
+                document.getElementById('stepCount').textContent = '0 steps';
+                return;
+            }
+            empty.style.display = 'none';
+            document.getElementById('stepCount').textContent = `${editorActions.length} steps`;
+
+            container.innerHTML = editorActions.map((action, idx) => {
+                const isSelected = idx === selectedEditorIdx;
+                const typeLabel = action.type || 'unknown';
+                const desc = action.description || action.text || action.url || '';
+                return `
+                <div class="action-editor-card ${isSelected ? 'selected' : ''}"
+                     onclick="selectAction(${idx})"
+                     style="border-left:3px solid ${isSelected ? '#2196F3' : '#555'};${isSelected ? 'background:#2a3040;' : ''}">
+                    <div class="ae-header">
+                        <span class="ae-type">#${idx+1} · ${typeLabel.toUpperCase()}</span>
+                        <span class="ae-remove" onclick="event.stopPropagation();removeAction(${idx})">×</span>
+                    </div>
+                    <div class="ae-fields">
+                        <div class="full-width">
+                            <small style="color:#888;">Desc:</small>
+                            <input value="${escHtml(desc)}" onchange="updateField(${idx},'description',this.value)"
+                                   style="width:100%;padding:4px 6px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;font-size:12px;">
+                        </div>
+                        <div>
+                            <small style="color:#888;">Delay:</small>
+                            <input type="number" value="${action.delay_ms || 500}" onchange="updateField(${idx},'delay_ms',parseInt(this.value)||500)"
+                                   style="width:100%;padding:4px 6px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;font-size:12px;">
+                        </div>
+                        <div>
+                            <small style="color:#888;">Timeout:</small>
+                            <input type="number" value="${action.timeout_ms || 10000}" onchange="updateField(${idx},'timeout_ms',parseInt(this.value)||10000)"
+                                   style="width:100%;padding:4px 6px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;font-size:12px;">
+                        </div>
+                        ${action.text !== undefined ? `
+                        <div class="full-width">
+                            <small style="color:#888;">Text:</small>
+                            <input value="${escHtml(action.text || '')}" onchange="updateField(${idx},'text',this.value)"
+                                   style="width:100%;padding:4px 6px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;font-size:12px;">
+                        </div>` : ''}
+                        ${action.selector ? `
+                        <div class="full-width">
+                            <small style="color:#888;">Selector:</small>
+                            <input value="${escHtml(action.selector)}" onchange="updateField(${idx},'selector',this.value)"
+                                   style="width:100%;padding:4px 6px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;font-size:12px;">
+                        </div>` : ''}
+                        ${action.url ? `
+                        <div class="full-width">
+                            <small style="color:#888;">URL:</small>
+                            <input value="${escHtml(action.url)}" onchange="updateField(${idx},'url',this.value)"
+                                   style="width:100%;padding:4px 6px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;font-size:12px;">
+                        </div>` : ''}
+                    </div>
+                    <div style="margin-top:6px;font-size:11px;color:#666;">
+                        ${action.completion_check_type ? `Check: ${action.completion_check_type}=${action.completion_check_value}` : 'No completion check'}
+                        ${action.retry_on_failure ? ` · Retry: ${action.max_retries}x` : ''}
+                        · (${action.x || 0}, ${action.y || 0})
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Update step detail
+            if (selectedEditorIdx >= 0 && editorActions[selectedEditorIdx]) {
+                showStepDetail(selectedEditorIdx);
+            }
+        }
+
+        function selectAction(idx) {
+            selectedEditorIdx = idx;
+            renderEditorActions();
+        }
+
+        function updateField(idx, field, value) {
+            if (editorActions[idx]) {
+                editorActions[idx][field] = value;
+                // Auto-sync with server
+                syncToServer();
+            }
+        }
+
+        function removeAction(idx) {
+            editorActions.splice(idx, 1);
+            if (selectedEditorIdx >= idx) selectedEditorIdx--;
+            if (selectedEditorIdx < -1) selectedEditorIdx = -1;
+            renderEditorActions();
+            syncToServer();
+        }
+
+        function clearAllActions() {
+            if (editorActions.length === 0) return;
+            if (confirm('Clear all actions?')) {
+                editorActions = [];
+                selectedEditorIdx = -1;
+                renderEditorActions();
+                syncToServer();
+            }
+        }
+
+        function addEmptyAction() {
+            editorActions.push({
+                type: 'click',
+                x: 200, y: 400,
+                text: '', selector: '', url: '',
+                description: 'New step',
+                delay_ms: 500, timeout_ms: 10000,
+                completion_check_type: '', completion_check_value: '',
+                retry_on_failure: false, max_retries: 2,
+                scroll_delta_x: 0, scroll_delta_y: 300,
+            });
+            selectedEditorIdx = editorActions.length - 1;
+            renderEditorActions();
+            syncToServer();
+        }
+
+        function showStepDetail(idx) {
+            const action = editorActions[idx];
+            if (!action) return;
+            const div = document.getElementById('stepDetail');
+            div.innerHTML = `
+                <div class="form-group">
+                    <label style="color:#aaa;">Type</label>
+                    <div style="color:#2196F3;font-weight:600;">${action.type}</div>
+                </div>
+                <div class="form-group">
+                    <label style="color:#aaa;">Coordinates</label>
+                    <div style="color:#ccc;">(${action.x || 0}, ${action.y || 0})</div>
+                </div>
+                <div class="form-group">
+                    <label style="color:#aaa;">Delay</label>
+                    <input type="number" value="${action.delay_ms || 500}" onchange="updateField(${idx},'delay_ms',parseInt(this.value)||500)"
+                           style="width:100%;padding:6px 8px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;">
+                </div>
+                <div class="form-group">
+                    <label style="color:#aaa;">Timeout</label>
+                    <input type="number" value="${action.timeout_ms || 10000}" onchange="updateField(${idx},'timeout_ms',parseInt(this.value)||10000)"
+                           style="width:100%;padding:6px 8px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;">
+                </div>
+                <div class="form-group">
+                    <label style="color:#aaa;">Completion Check</label>
+                    <select onchange="updateField(${idx},'completion_check_type',this.value)" style="width:100%;padding:6px 8px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;">
+                        <option value="" ${!action.completion_check_type ? 'selected' : ''}>None</option>
+                        <option value="url_contains" ${action.completion_check_type === 'url_contains' ? 'selected' : ''}>URL Contains</option>
+                        <option value="text_contains" ${action.completion_check_type === 'text_contains' ? 'selected' : ''}>Text Contains</option>
+                        <option value="selector_visible" ${action.completion_check_type === 'selector_visible' ? 'selected' : ''}>Selector Visible</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="color:#aaa;">Check Value</label>
+                    <input value="${action.completion_check_value || ''}" onchange="updateField(${idx},'completion_check_value',this.value)"
+                           style="width:100%;padding:6px 8px;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#fff;">
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-sm btn-warning" onclick="testStep(${idx})" style="width:100%;">▶ Test This Step</button>
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-sm btn-danger" onclick="removeAction(${idx})" style="width:100%;">🗑 Remove Step</button>
+                </div>
+            `;
+        }
+
+        async function testStep(idx) {
+            const action = editorActions[idx];
+            if (!action) return;
+            const div = document.getElementById('stepDetail');
+            try {
+                const res = await fetch('/api/play/test-step', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(action)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const r = data.result;
+                    div.innerHTML += `
+                        <div style="margin-top:8px;padding:8px;border-radius:4px;background:#1a3a1a;color:#4CAF50;font-size:12px;">
+                            ${r.success ? '✅ Passed' : '❌ Failed'} (${(r.duration_ms/1000).toFixed(1)}s)
+                            ${r.error ? `<br>Error: ${r.error}` : ''}
+                        </div>`;
+                }
+            } catch(e) {
+                div.innerHTML += `<div style="color:#f44336;font-size:12px;margin-top:4px;">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function syncToServer() {
+            try {
+                await fetch('/api/recording/new', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: document.getElementById('recName').value || 'Untitled'
+                    })
+                });
+                for (const action of editorActions) {
+                    await fetch('/api/recording/add-action', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(action)
+                    });
+                }
+            } catch(e) {
+                console.error('Sync error:', e);
+            }
+        }
+
+        async function saveRecordingEditor() {
+            const name = document.getElementById('recName').value.trim() || 'Untitled';
+            const projectId = document.getElementById('recProject').value;
+            try {
+                await syncToServer();
+                const res = await fetch('/api/recording/save', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, project_id: projectId})
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert(`✅ Recording saved! ID: ${data.recording.id}`);
+                }
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        async function loadRecordingUI() {
+            try {
+                const res = await fetch('/api/recordings');
+                const data = await res.json();
+                const recordings = data.recordings || [];
+                if (recordings.length === 0) {
+                    alert('No saved recordings.');
+                    return;
+                }
+                const list = recordings.map(r =>
+                    `${r.id}: ${r.name} (${(r.actions || []).length} steps)`
+                ).join('\n');
+                const id = prompt(`Enter recording ID to load:\n\n${list}`);
+                if (!id) return;
+
+                const loadRes = await fetch(`/api/recording/load/${id.trim()}`);
+                const loadData = await loadRes.json();
+                if (loadData.status === 'ok') {
+                    const rec = loadData.recording;
+                    document.getElementById('recName').value = rec.name || 'Loaded';
+                    if (rec.project_id) document.getElementById('recProject').value = rec.project_id;
+                    editorActions = (rec.actions || []).map(a => ({...a}));
+                    selectedEditorIdx = -1;
+                    renderEditorActions();
+                    alert(`✅ Loaded: ${rec.name}`);
+                }
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function escHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        init();
+    </script>
+</body>
+</html>

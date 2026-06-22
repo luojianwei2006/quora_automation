@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Browser Simulator</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .browser-layout {
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 80px);
+            padding: 20px;
+        }
+        .phone-container {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .phone-frame {
+            width: 393px;
+            height: 852px;
+            background: #1a1a1a;
+            border-radius: 44px;
+            padding: 12px;
+            position: relative;
+            box-shadow: 0 0 0 2px #333, 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .phone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 30px;
+            background: #1a1a1a;
+            border-radius: 0 0 18px 18px;
+            z-index: 10;
+        }
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            border-radius: 32px;
+            overflow: hidden;
+            position: relative;
+            background: #fff;
+            cursor: none;
+        }
+        .browser-frame {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        .browser-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* Simulated cursor */
+        .sim-cursor {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border: 2px solid #2196F3;
+            background: rgba(33,150,243,0.15);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 100;
+            transition: width 0.15s, height 0.15s, background 0.15s;
+        }
+        .sim-cursor.clicking {
+            width: 18px;
+            height: 18px;
+            background: rgba(33,150,243,0.4);
+        }
+        .sim-cursor .cursor-tail {
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 8px;
+            background: rgba(33,150,243,0.3);
+            border-radius: 1px;
+        }
+
+        /* Right-click context menu */
+        .context-menu {
+            display: none;
+            position: fixed;
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 200px;
+            z-index: 1000;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .context-menu.show { display: block; }
+        .context-menu .menu-title {
+            padding: 6px 12px;
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .context-menu .menu-item {
+            padding: 8px 12px;
+            color: #eee;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .context-menu .menu-item:hover { background: #3a3a3a; }
+        .context-menu .menu-divider {
+            height: 1px;
+            background: #444;
+            margin: 4px 0;
+        }
+        .context-menu .menu-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+        /* Action form overlay */
+        .action-form {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-form.show { display: flex; }
+        .action-form-content {
+            background: #2d2d2d;
+            border-radius: 12px;
+            padding: 24px;
+            width: 420px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+        .action-form-content h3 {
+            margin: 0 0 16px;
+            color: #fff;
+            font-size: 18px;
+        }
+        .action-form-content .form-group {
+            margin-bottom: 12px;
+        }
+        .action-form-content label {
+            display: block;
+            color: #aaa;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        .action-form-content input,
+        .action-form-content select,
+        .action-form-content textarea {
+            width: 100%;
+            padding: 8px 10px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        .action-form-content textarea { min-height: 60px; resize: vertical; }
+        .action-form-content .form-row {
+            display: flex;
+            gap: 10px;
+        }
+        .action-form-content .form-row > * { flex: 1; }
+        .action-form-content .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        /* Toolbar */
+        .browser-toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 0;
+            width: 393px;
+        }
+        .browser-toolbar input[type="text"] {
+            flex: 1;
+            padding: 8px 12px;
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 13px;
+        }
+        .browser-toolbar button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            background: #2196F3;
+            color: #fff;
+        }
+        .browser-toolbar button:hover { background: #1976D2; }
+
+        /* Right panel - action list */
+        .action-panel {
+            flex: 1;
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 16px;
+            overflow-y: auto;
+            min-width: 320px;
+        }
+        .action-panel h3 {
+            color: #fff;
+            margin: 0 0 12px;
+            font-size: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .action-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .action-item {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 10px 12px;
+            border-left: 3px solid #555;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .action-item:hover { background: #333; }
+        .action-item .action-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .action-item .action-type {
+            font-size: 12px;
+            color: #2196F3;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .action-item .action-desc {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .action-item .action-delay {
+            font-size: 11px;
+            color: #666;
+        }
+        .action-item .action-remove {
+            color: #f44336;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .action-item.selected {
+            border-left-color: #2196F3;
+            background: #2a3040;
+        }
+
+        .action-panel-footer {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* Element info badge */
+        .element-info-badge {
+            position: fixed;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            z-index: 99;
+            pointer-events: none;
+            max-width: 300px;
+            display: none;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-dot.online { background: #4CAF50; }
+        .status-dot.offline { background: #f44336; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 Quora Reply Automation</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/browser" class="active">Mobile Browser</a>
+            <a href="/recording">Recording Editor</a>
+            <a href="/projects">Projects</a>
+            <a href="/tasks">Tasks</a>
+        </div>
+        <div class="nav-status">
+            <span class="status-dot offline" id="browserStatusDot"></span>
+            <span id="browserStatusText">Offline</span>
+        </div>
+    </nav>
+
+    <div class="browser-layout">
+        <!-- Phone Container -->
+        <div class="phone-container">
+            <div class="browser-toolbar">
+                <input type="text" id="urlInput" placeholder="Enter URL..." value="https://www.quora.com">
+                <button onclick="navigateToUrl()">Go</button>
+                <button onclick="refreshPage()" title="Refresh">↻</button>
+            </div>
+            <div class="phone-frame" id="phoneFrame">
+                <div class="phone-notch"></div>
+                <div class="phone-screen" id="phoneScreen">
+                    <div class="browser-frame" id="browserFrame">
+                        <div id="browserPlaceholder" style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;font-size:14px;flex-direction:column;gap:10px;">
+                            <div style="font-size:40px;">📱</div>
+                            <div>Click "Start Browser" to begin</div>
+                        </div>
+                        <img id="browserScreenshot" style="display:none;" alt="Browser view">
+                    </div>
+                    <!-- Simulated cursor -->
+                    <div class="sim-cursor" id="simCursor">
+                        <div class="cursor-tail"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="browser-toolbar" style="justify-content:center;">
+                <button id="startBrowserBtn" onclick="startBrowser()">▶ Start Browser</button>
+                <button onclick="stopBrowser()" style="background:#f44336;">■ Stop</button>
+                <button onclick="takeScreenshot()" style="background:#4CAF50;">📷 Screenshot</button>
+            </div>
+        </div>
+
+        <!-- Action Panel -->
+        <div class="action-panel" id="actionPanel">
+            <h3>
+                <span>📋 Recorded Actions</span>
+                <span style="font-size:12px;color:#888;" id="actionCount">0 steps</span>
+            </h3>
+            <div class="action-list" id="actionList"></div>
+            <div class="action-panel-footer">
+                <button class="btn btn-sm btn-primary" onclick="clearActions()">Clear All</button>
+                <button class="btn btn-sm btn-secondary" onclick="saveRecording()">💾 Save</button>
+                <button class="btn btn-sm btn-success" onclick="loadRecordingUI()">📂 Load</button>
+                <button class="btn btn-sm btn-warning" onclick="startPlayback()">▶ Play All</button>
+                <button class="btn btn-sm btn-danger" onclick="abortPlayback()">■ Stop Play</button>
+                <button class="btn btn-sm btn-secondary" onclick="testSingleStep()">◆ Test Step</button>
+            </div>
+            <div id="playbackStatus" style="margin-top:8px;font-size:12px;color:#888;"></div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <div class="menu-title">Record Action at Cursor</div>
+        <div class="menu-item" onclick="recordAction('click')"><span class="icon">👆</span> Click / Tap</div>
+        <div class="menu-item" onclick="recordAction('longpress')"><span class="icon">👊</span> Long Press (1s)</div>
+        <div class="menu-item" onclick="recordAction('drag')"><span class="icon">🔄</span> Drag</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" onclick="recordAction('input')"><span class="icon">⌨️</span> Input Text</div>
+        <div class="menu-item" onclick="recordAction('paste')"><span class="icon">📋</span> Paste</div>
+        <div class="menu-item" onclick="recordAction('copy')"><span class="icon">📄</span> Copy</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" onclick="recordAction('scroll')"><span class="icon">📜</span> Scroll</div>
+        <div class="menu-item" onclick="recordAction('navigate')"><span class="icon">🌐</span> Navigate to URL</div>
+        <div class="menu-item" onclick="recordAction('wait')"><span class="icon">⏱️</span> Wait</div>
+        <div class="menu-item" onclick="recordAction('extract')"><span class="icon">📝</span> Extract Text</div>
+        <div class="menu-item" onclick="recordAction('screenshot')"><span class="icon">📷</span> Take Screenshot</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" onclick="recordAction('assert')"><span class="icon">✓</span> Assert Condition</div>
+        <div class="menu-item" onclick="inspectElement()"><span class="icon">🔍</span> Inspect Element</div>
+    </div>
+
+    <!-- Action Parameter Form -->
+    <div class="action-form" id="actionForm">
+        <div class="action-form-content" id="actionFormContent">
+            <h3 id="formTitle">Action Parameters</h3>
+            <div id="formFields"></div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeForm()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitForm()">✔ Add to Recording</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Element Info Badge -->
+    <div class="element-info-badge" id="elementInfoBadge"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let cursorX = 200, cursorY = 400;
+        let isDraggingCursor = false;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let contextClickX = 0, contextClickY = 0;
+        let isRecordingMode = true;
+        let dragStartX = 0, dragStartY = 0, isDraggingForRecord = false;
+        let currentActions = [];
+        let browserRunning = false;
+        let selectedActionIdx = -1;
+        let formMode = 'add'; // 'add' or 'edit'
+        let editingActionIdx = -1;
+
+        // ─── Browser Control ───────────────────────────────────────
+
+        async function startBrowser() {
+            const btn = document.getElementById('startBrowserBtn');
+            btn.textContent = '⏳ Starting...';
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/browser/start', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    browserRunning = true;
+                    document.getElementById('browserStatusDot').className = 'status-dot online';
+                    document.getElementById('browserStatusText').textContent = 'Online';
+                    document.getElementById('browserPlaceholder').style.display = 'none';
+                    document.getElementById('browserScreenshot').style.display = 'block';
+                    btn.textContent = '▶ Browser Running';
+                    btn.style.background = '#4CAF50';
+                    navigateToUrl();
+                } else {
+                    alert('Failed to start browser: ' + (data.error || 'Unknown error'));
+                    btn.textContent = '▶ Start Browser';
+                }
+            } catch(e) {
+                alert('Error: ' + e.message);
+                btn.textContent = '▶ Start Browser';
+            }
+            btn.disabled = false;
+        }
+
+        async function stopBrowser() {
+            try {
+                await fetch('/api/browser/stop', { method: 'POST' });
+                browserRunning = false;
+                document.getElementById('browserStatusDot').className = 'status-dot offline';
+                document.getElementById('browserStatusText').textContent = 'Offline';
+                document.getElementById('startBrowserBtn').textContent = '▶ Start Browser';
+                document.getElementById('startBrowserBtn').style.background = '';
+                document.getElementById('browserScreenshot').style.display = 'none';
+                document.getElementById('browserPlaceholder').style.display = 'flex';
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function navigateToUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) return;
+            if (!browserRunning) {
+                await startBrowser();
+                setTimeout(() => navigateToUrl(), 1000);
+                return;
+            }
+            try {
+                const res = await fetch('/api/browser/navigate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: url.startsWith('http') ? url : 'https://' + url})
+                });
+                const data = await res.json();
+                if (data.screenshot) {
+                    document.getElementById('browserScreenshot').src = data.screenshot;
+                    document.getElementById('browserScreenshot').style.display = 'block';
+                    document.getElementById('browserPlaceholder').style.display = 'none';
+                }
+                if (data.info) {
+                    document.getElementById('urlInput').value = data.info.url || url;
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function refreshPage() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (url) await navigateToUrl();
+        }
+
+        async function takeScreenshot() {
+            try {
+                const res = await fetch('/api/browser/screenshot');
+                const data = await res.json();
+                if (data.screenshot) {
+                    document.getElementById('browserScreenshot').src = data.screenshot;
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function fetchScreenshot() {
+            if (!browserRunning) return;
+            try {
+                const res = await fetch('/api/browser/screenshot');
+                const data = await res.json();
+                if (data.screenshot) {
+                    document.getElementById('browserScreenshot').src = data.screenshot;
+                }
+            } catch(e) {}
+        }
+
+        // ─── Cursor Control ────────────────────────────────────────
+
+        const phoneScreen = document.getElementById('phoneScreen');
+        const simCursor = document.getElementById('simCursor');
+        const phoneFrame = document.getElementById('phoneFrame');
+
+        phoneScreen.addEventListener('mousemove', (e) => {
+            const rect = phoneScreen.getBoundingClientRect();
+            cursorX = e.clientX - rect.left;
+            cursorY = e.clientY - rect.top;
+            simCursor.style.left = cursorX + 'px';
+            simCursor.style.top = cursorY + 'px';
+
+            if (isDraggingForRecord) {
+                // Show drag line
+            }
+        });
+
+        phoneScreen.addEventListener('mouseenter', () => {
+            simCursor.style.display = 'block';
+        });
+
+        phoneScreen.addEventListener('mouseleave', () => {
+            simCursor.style.display = 'none';
+            if (isDraggingForRecord) {
+                isDraggingForRecord = false;
+            }
+        });
+
+        // Click on screen = execute click on browser
+        phoneScreen.addEventListener('click', (e) => {
+            if (!browserRunning) return;
+            if (isDraggingForRecord) return;
+
+            simCursor.classList.add('clicking');
+            setTimeout(() => simCursor.classList.remove('clicking'), 200);
+
+            const rect = phoneScreen.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            fetch('/api/browser/click', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({x: Math.round(x), y: Math.round(y)})
+            }).then(r => r.json()).then(data => {
+                if (data.screenshot) {
+                    document.getElementById('browserScreenshot').src = data.screenshot;
+                }
+            });
+        });
+
+        // Right-click = show context menu
+        phoneScreen.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const rect = phoneScreen.getBoundingClientRect();
+            contextClickX = Math.round(e.clientX - rect.left);
+            contextClickY = Math.round(e.clientY - rect.top);
+
+            // Get element info
+            fetch('/api/browser/element', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({x: contextClickX, y: contextClickY})
+            }).then(r => r.json()).then(data => {
+                if (data.element && data.element.text) {
+                    document.getElementById('elementInfoBadge').textContent =
+                        `&lt;${data.element.tag}&gt; ${data.element.text.substring(0, 60)}`;
+                }
+            });
+
+            const menu = document.getElementById('contextMenu');
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.classList.add('show');
+        });
+
+        // Hide context menu on click elsewhere
+        document.addEventListener('click', (e) => {
+            document.getElementById('contextMenu').classList.remove('show');
+        });
+
+        // ─── Recording Actions ─────────────────────────────────────
+
+        function recordAction(type) {
+            document.getElementById('contextMenu').classList.remove('show');
+            const form = document.getElementById('actionForm');
+            const formContent = document.getElementById('formTitle');
+            const fields = document.getElementById('formFields');
+
+            formMode = 'add';
+            editingActionIdx = -1;
+
+            let html = `
+                <input type="hidden" id="f_type" value="${type}">
+                <div class="form-group">
+                    <label>Action Type</label>
+                    <input value="${typeLabels[type] || type}" disabled style="color:#2196F3;font-weight:600;">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input id="f_description" placeholder="What does this step do?" value="">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>X Coordinate</label>
+                        <input id="f_x" type="number" value="${contextClickX}">
+                    </div>
+                    <div class="form-group">
+                        <label>Y Coordinate</label>
+                        <input id="f_y" type="number" value="${contextClickY}">
+                    </div>
+                </div>
+            `;
+
+            // Type-specific fields
+            if (type === 'click') {
+                html += `
+                    <div class="form-group">
+                        <label>CSS Selector (optional)</label>
+                        <input id="f_selector" placeholder="e.g., .class-name, #id">
+                    </div>
+                `;
+            } else if (type === 'longpress') {
+                html += `
+                    <div class="form-group">
+                        <label>Press Duration (ms)</label>
+                        <input id="f_duration" type="number" value="1000">
+                    </div>
+                `;
+            } else if (type === 'drag') {
+                html += `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Target X</label>
+                            <input id="f_target_x" type="number" value="${contextClickX + 100}">
+                        </div>
+                        <div class="form-group">
+                            <label>Target Y</label>
+                            <input id="f_target_y" type="number" value="${contextClickY + 100}">
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'input') {
+                html += `
+                    <div class="form-group">
+                        <label>Text to Input</label>
+                        <textarea id="f_text" placeholder="Enter text..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>CSS Selector (optional)</label>
+                        <input id="f_selector" placeholder="Target input field selector">
+                    </div>
+                `;
+            } else if (type === 'scroll') {
+                html += `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Scroll X</label>
+                            <input id="f_scroll_x" type="number" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Scroll Y</label>
+                            <input id="f_scroll_y" type="number" value="500">
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'navigate') {
+                html += `
+                    <div class="form-group">
+                        <label>URL</label>
+                        <input id="f_url" placeholder="https://..." value="https://www.quora.com">
+                    </div>
+                `;
+            } else if (type === 'wait') {
+                html += `
+                    <div class="form-group">
+                        <label>Wait Duration (ms)</label>
+                        <input id="f_delay_ms" type="number" value="2000">
+                    </div>
+                `;
+            } else if (type === 'extract') {
+                html += `
+                    <div class="form-group">
+                        <label>CSS Selector</label>
+                        <input id="f_selector" placeholder="body" value="body">
+                    </div>
+                    <div class="form-group">
+                        <label>Variable Name (store result)</label>
+                        <input id="f_description" placeholder="e.g., extracted_text">
+                    </div>
+                `;
+            } else if (type === 'paste') {
+                html += `
+                    <div class="form-group">
+                        <label>Text to Paste</label>
+                        <textarea id="f_text" placeholder="Text to paste..."></textarea>
+                    </div>
+                `;
+            } else if (type === 'assert') {
+                html += `
+                    <div class="form-group">
+                        <label>Check Type</label>
+                        <select id="f_check_type">
+                            <option value="url_contains">URL Contains</option>
+                            <option value="text_contains">Text Contains</option>
+                            <option value="selector_visible">Selector Visible</option>
+                            <option value="element_disappeared">Element Disappeared</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Expected Value</label>
+                        <input id="f_check_value" placeholder="Expected text or selector">
+                    </div>
+                `;
+            } else if (type === 'copy') {
+                // No extra params
+            } else if (type === 'screenshot') {
+                // No extra params
+            }
+
+            // Common fields
+            html += `
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Delay Before (ms)</label>
+                        <input id="f_delay_ms" type="number" value="500">
+                    </div>
+                    <div class="form-group">
+                        <label>Timeout (ms)</label>
+                        <input id="f_timeout_ms" type="number" value="10000">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Completion Check</label>
+                        <select id="f_completion_type">
+                            <option value="">None</option>
+                            <option value="url_contains">URL Contains</option>
+                            <option value="text_contains">Text Contains</option>
+                            <option value="selector_visible">Selector Visible</option>
+                            <option value="element_disappeared">Element Disappeared</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Check Value</label>
+                        <input id="f_completion_value" placeholder="Expected value">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Retry on Failure</label>
+                        <select id="f_retry">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Max Retries</label>
+                        <input id="f_max_retries" type="number" value="2">
+                    </div>
+                </div>
+            `;
+
+            formContent.textContent = `Record ${typeLabels[type] || type}`;
+            fields.innerHTML = html;
+            form.classList.add('show');
+        }
+
+        const typeLabels = {
+            'click': 'Click / Tap',
+            'longpress': 'Long Press',
+            'drag': 'Drag',
+            'input': 'Input Text',
+            'copy': 'Copy',
+            'paste': 'Paste',
+            'scroll': 'Scroll',
+            'navigate': 'Navigate',
+            'wait': 'Wait',
+            'extract': 'Extract Text',
+            'screenshot': 'Screenshot',
+            'assert': 'Assert Condition',
+        };
+
+        function closeForm() {
+            document.getElementById('actionForm').classList.remove('show');
+        }
+
+        function submitForm() {
+            const type = document.getElementById('f_type').value;
+            const action = {
+                type: type,
+                x: safeInt('f_x'),
+                y: safeInt('f_y'),
+                target_x: safeInt('f_target_x'),
+                target_y: safeInt('f_target_y'),
+                text: val('f_text'),
+                selector: val('f_selector'),
+                url: val('f_url'),
+                description: val('f_description'),
+                delay_ms: safeInt('f_delay_ms', 500),
+                timeout_ms: safeInt('f_timeout_ms', 10000),
+                scroll_delta_x: safeInt('f_scroll_x', 0),
+                scroll_delta_y: safeInt('f_scroll_y', 300),
+                completion_check_type: val('f_completion_type') || '',
+                completion_check_value: val('f_completion_value') || '',
+                retry_on_failure: val('f_retry') === 'true',
+                max_retries: safeInt('f_max_retries', 2),
+            };
+
+            // Clean up drag target coordinates for non-drag actions
+            if (type !== 'drag') {
+                delete action.target_x;
+                delete action.target_y;
+            }
+
+            if (formMode === 'add') {
+                currentActions.push(action);
+            } else if (formMode === 'edit' && editingActionIdx >= 0) {
+                currentActions[editingActionIdx] = action;
+            }
+
+            renderActions();
+            updateActionCount();
+            closeForm();
+
+            // Refresh browser screenshot after recording
+            if (browserRunning) {
+                fetchScreenshot();
+            }
+        }
+
+        function val(id) {
+            const el = document.getElementById(id);
+            return el ? el.value : '';
+        }
+
+        function safeInt(id, defaultVal = 0) {
+            const el = document.getElementById(id);
+            if (!el) return defaultVal;
+            const v = parseInt(el.value);
+            return isNaN(v) ? defaultVal : v;
+        }
+
+        function renderActions() {
+            const list = document.getElementById('actionList');
+            list.innerHTML = '';
+            currentActions.forEach((action, idx) => {
+                const desc = action.description || action.text || action.url || '';
+                const delay = action.delay_ms || 0;
+                const item = document.createElement('div');
+                item.className = `action-item ${idx === selectedActionIdx ? 'selected' : ''}`;
+                item.innerHTML = `
+                    <div class="action-header">
+                        <span class="action-type">${idx + 1}. ${typeLabels[action.type] || action.type}</span>
+                        <span class="action-delay">${delay}ms</span>
+                    </div>
+                    <div class="action-desc">${desc.substring(0, 80)}</div>
+                `;
+                item.onclick = () => editAction(idx);
+                item.ondblclick = () => removeAction(idx);
+                list.appendChild(item);
+            });
+        }
+
+        function updateActionCount() {
+            document.getElementById('actionCount').textContent = `${currentActions.length} steps`;
+        }
+
+        function clearActions() {
+            if (currentActions.length === 0) return;
+            if (confirm('Clear all recorded actions?')) {
+                currentActions = [];
+                renderActions();
+                updateActionCount();
+            }
+        }
+
+        function editAction(idx) {
+            selectedActionIdx = idx;
+            const action = currentActions[idx];
+            if (!action) return;
+
+            // Populate form with existing values
+            const form = document.getElementById('actionForm');
+            const fields = document.getElementById('formFields');
+            formMode = 'edit';
+            editingActionIdx = idx;
+
+            // Re-render the form for this action type
+            contextClickX = action.x || 0;
+            contextClickY = action.y || 0;
+            recordAction(action.type);
+
+            // Fill in values
+            setTimeout(() => {
+                setVal('f_description', action.description || '');
+                setVal('f_x', action.x);
+                setVal('f_y', action.y);
+                setVal('f_target_x', action.target_x);
+                setVal('f_target_y', action.target_y);
+                setVal('f_text', action.text || '');
+                setVal('f_selector', action.selector || '');
+                setVal('f_url', action.url || '');
+                setVal('f_delay_ms', action.delay_ms || 500);
+                setVal('f_timeout_ms', action.timeout_ms || 10000);
+                setVal('f_scroll_x', action.scroll_delta_x || 0);
+                setVal('f_scroll_y', action.scroll_delta_y || 300);
+                setVal('f_completion_type', action.completion_check_type || '');
+                setVal('f_completion_value', action.completion_check_value || '');
+                setVal('f_retry', action.retry_on_failure ? 'true' : 'false');
+                setVal('f_max_retries', action.max_retries || 2);
+
+                document.getElementById('formTitle').textContent = `✏ Edit ${typeLabels[action.type] || action.type}`;
+                // Change submit button text
+                const submitBtn = document.querySelector('#actionForm .form-actions button.btn-primary');
+                if (submitBtn) submitBtn.textContent = '✔ Update Action';
+            }, 50);
+        }
+
+        function setVal(id, value) {
+            const el = document.getElementById(id);
+            if (el && value !== undefined && value !== null) el.value = value;
+        }
+
+        function removeAction(idx) {
+            if (confirm(`Remove step ${idx + 1}?`)) {
+                currentActions.splice(idx, 1);
+                selectedActionIdx = -1;
+                renderActions();
+                updateActionCount();
+            }
+        }
+
+        function inspectElement() {
+            document.getElementById('contextMenu').classList.remove('show');
+            alert(`Element at (${contextClickX}, ${contextClickY}) - check console for details`);
+        }
+
+        // ─── Save / Load ───────────────────────────────────────────
+
+        async function saveRecording() {
+            const name = prompt('Recording name:', 'Quora Reply Workflow');
+            if (!name) return;
+
+            try {
+                // First set the recording
+                await fetch('/api/recording/new', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: name})
+                });
+
+                // Add all actions
+                for (const action of currentActions) {
+                    await fetch('/api/recording/add-action', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(action)
+                    });
+                }
+
+                // Save
+                const res = await fetch('/api/recording/save', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: name})
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert(`Recording saved! ID: ${data.recording.id}`);
+                }
+            } catch(e) {
+                alert('Error saving: ' + e.message);
+            }
+        }
+
+        async function loadRecordingUI() {
+            try {
+                const res = await fetch('/api/recordings');
+                const data = await res.json();
+                const recordings = data.recordings || [];
+                if (recordings.length === 0) {
+                    alert('No saved recordings found.');
+                    return;
+                }
+                const list = recordings.map(r =>
+                    `${r.id}: ${r.name} (${(r.actions || []).length} steps, ${r.created_at})`
+                ).join('\n');
+                const id = prompt(`Select recording ID to load:\n\n${list}`);
+                if (!id) return;
+                await loadRecording(id.trim());
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        async function loadRecording(id) {
+            try {
+                const res = await fetch(`/api/recording/load/${id}`);
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    currentActions = (data.recording.actions || []).map(a => ({
+                        type: a.type,
+                        x: a.x, y: a.y,
+                        target_x: a.target_x, target_y: a.target_y,
+                        text: a.text || '',
+                        selector: a.selector || '',
+                        url: a.url || '',
+                        description: a.description || '',
+                        delay_ms: a.delay_ms || 500,
+                        timeout_ms: a.timeout_ms || 10000,
+                        scroll_delta_x: a.scroll_delta_x || 0,
+                        scroll_delta_y: a.scroll_delta_y || 300,
+                        completion_check_type: a.completion_check_type || '',
+                        completion_check_value: a.completion_check_value || '',
+                        retry_on_failure: a.retry_on_failure || false,
+                        max_retries: a.max_retries || 2,
+                    }));
+                    renderActions();
+                    updateActionCount();
+                    alert(`Loaded: ${data.recording.name}`);
+                }
+            } catch(e) {
+                alert('Error loading: ' + e.message);
+            }
+        }
+
+        // ─── Playback ──────────────────────────────────────────────
+
+        async function testSingleStep() {
+            if (selectedActionIdx < 0) {
+                alert('Select an action first (click on it)');
+                return;
+            }
+            const action = currentActions[selectedActionIdx];
+            if (!action) return;
+
+            document.getElementById('playbackStatus').textContent = `▶ Testing step ${selectedActionIdx + 1}...`;
+            try {
+                const res = await fetch('/api/play/test-step', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(action)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const result = data.result;
+                    document.getElementById('playbackStatus').textContent =
+                        `${result.success ? '✅' : '❌'} Step ${selectedActionIdx + 1}: ` +
+                        `${result.success ? 'Passed' : 'Failed'} ` +
+                        `(${(result.duration_ms / 1000).toFixed(1)}s)` +
+                        (result.error ? ` - ${result.error}` : '');
+                    if (result.screenshot) {
+                        document.getElementById('browserScreenshot').src = result.screenshot;
+                    }
+                } else {
+                    document.getElementById('playbackStatus').textContent = '❌ Error: ' + (data.error || 'Unknown');
+                }
+            } catch(e) {
+                document.getElementById('playbackStatus').textContent = '❌ Error: ' + e.message;
+            }
+        }
+
+        async function startPlayback() {
+            if (currentActions.length === 0) {
+                alert('No actions to play. Record some actions first.');
+                return;
+            }
+
+            // First save current actions
+            await fetch('/api/recording/new', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: 'Playback Temp'})
+            });
+            for (const action of currentActions) {
+                await fetch('/api/recording/add-action', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(action)
+                });
+            }
+
+            document.getElementById('playbackStatus').textContent =
+                `▶ Playing ${currentActions.length} steps... (watch browser)`;
+
+            const res = await fetch('/api/play/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({continue_on_error: false})
+            });
+        }
+
+        function abortPlayback() {
+            fetch('/api/play/abort', {method: 'POST'});
+            document.getElementById('playbackStatus').textContent = '⏹ Playback aborted';
+        }
+
+        // ─── Socket.IO Events ──────────────────────────────────────
+
+        socket.on('playback:step', (data) => {
+            const r = data.result;
+            document.getElementById('playbackStatus').textContent =
+                `[${data.step}/${data.total}] ${r.success ? '✅' : '❌'} ${typeLabels[r.action_type] || r.action_type}` +
+                (r.error ? ` - ${r.error}` : '');
+            if (r.screenshot) {
+                document.getElementById('browserScreenshot').src = r.screenshot;
+            }
+        });
+
+        socket.on('playback:complete', (data) => {
+            const s = data.summary;
+            document.getElementById('playbackStatus').textContent =
+                `✅ Playback complete: ${s.passed}/${s.total} passed (${s.success_rate.toFixed(0)}%)`;
+        });
+
+        socket.on('playback:error', (data) => {
+            document.getElementById('playbackStatus').textContent = '❌ Playback error: ' + data.error;
+        });
+
+        // ─── Keyboard Shortcuts ────────────────────────────────────
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && document.getElementById('urlInput').matches(':focus')) {
+                navigateToUrl();
+            }
+            if (e.key === 'Delete' && selectedActionIdx >= 0) {
+                removeAction(selectedActionIdx);
+            }
+        });
+
+        // Auto-refresh screenshot periodically
+        setInterval(() => {
+            if (browserRunning) {
+                fetchScreenshot();
+            }
+        }, 3000);
+
+        console.log('📱 Mobile Browser Simulator loaded');
+        console.log('💡 Right-click on the phone screen to record actions');
+        console.log('💡 Click on actions in the list to edit them');
+    </script>
+</body>
+</html>
