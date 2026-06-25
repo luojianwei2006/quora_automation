@@ -829,9 +829,10 @@ def api_adb_status():
 
 if __name__ == "__main__":
     os.makedirs(storage.DATA_DIR, exist_ok=True)
+    port = int(os.environ.get("PORT", 5050))
     print("=" * 60)
     print("  Quora Automation System")
-    print("  Management Dashboard: http://0.0.0.0:5000")
-    print("  Mobile Browser View:  http://0.0.0.0:5000/browser")
+    print(f"  Management Dashboard: http://0.0.0.0:{port}")
+    print(f"  Mobile Browser View:  http://0.0.0.0:{port}/browser")
     print("=" * 60)
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True)
