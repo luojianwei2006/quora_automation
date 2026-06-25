@@ -1,0 +1,8 @@
+flask>=3.0,<4.0
+flask-socketio>=5.3,<6.0
+werkzeug>=2.3,<3.0
+eventlet>=0.33
+pillow>=10.0
+playwright>=1.40
+beautifulsoup4>=4.12
+requests>=2.31
