@@ -435,7 +435,18 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // ─── State (declare before all functions) ────────
+        // ─── Socket.IO (optional — page works without it) ────
+        var socket = null;
+        try {
+            socket = io();
+            if (socket) {
+                socket.on('connect', function() { debug('WebSocket connected', 'ok'); });
+            }
+        } catch(e) {
+            console.log('Socket.IO not available, using HTTP fallback');
+        }
+
+        // ─── State ───────────────────────────────────────────
         var browserRunning = false;
         var currentActions = [];
         var selectedActionIdx = -1;
@@ -1268,25 +1279,27 @@
 
         // ─── Socket.IO Events ──────────────────────────────────────
 
-        socket.on('playback:step', (data) => {
-            const r = data.result;
-            document.getElementById('playbackStatus').textContent =
-                `[${data.step}/${data.total}] ${r.success ? '✅' : '❌'} ${typeLabels[r.action_type] || r.action_type}` +
-                (r.error ? ` - ${r.error}` : '');
-            if (r.screenshot) {
-                document.getElementById('browserScreenshot').src = r.screenshot;
-            }
-        });
+        if (socket) {
+            socket.on('playback:step', (data) => {
+                const r = data.result;
+                document.getElementById('playbackStatus').textContent =
+                    `[${data.step}/${data.total}] ${r.success ? '✅' : '❌'} ${typeLabels[r.action_type] || r.action_type}` +
+                    (r.error ? ` - ${r.error}` : '');
+                if (r.screenshot) {
+                    document.getElementById('browserScreenshot').src = r.screenshot;
+                }
+            });
 
-        socket.on('playback:complete', (data) => {
-            const s = data.summary;
-            document.getElementById('playbackStatus').textContent =
-                `✅ Playback complete: ${s.passed}/${s.total} passed (${s.success_rate.toFixed(0)}%)`;
-        });
+            socket.on('playback:complete', (data) => {
+                const s = data.summary;
+                document.getElementById('playbackStatus').textContent =
+                    `✅ Playback complete: ${s.passed}/${s.total} passed (${s.success_rate.toFixed(0)}%)`;
+            });
 
-        socket.on('playback:error', (data) => {
-            document.getElementById('playbackStatus').textContent = '❌ Playback error: ' + data.error;
-        });
+            socket.on('playback:error', (data) => {
+                document.getElementById('playbackStatus').textContent = '❌ Playback error: ' + data.error;
+            });
+        }
 
         // ─── Keyboard Shortcuts ────────────────────────────────────
 
