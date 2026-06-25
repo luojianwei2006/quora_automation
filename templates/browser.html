@@ -45,28 +45,32 @@
             overflow: hidden;
             position: relative;
             background: #fff;
-            cursor: none;
         }
         .browser-frame {
             width: 100%;
             height: 100%;
             position: relative;
-            pointer-events: none;
         }
         .browser-frame img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
-            pointer-events: none;
         }
         .browser-placeholder {
-            pointer-events: none;
             position: absolute;
             inset: 0;
             display: flex;
             align-items: center;
             justify-content: center;
+            pointer-events: none;
+        }
+        /* Transparent overlay to capture all mouse events */
+        .phone-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            background: transparent;
         }
 
         /* Simulated cursor */
@@ -356,11 +360,14 @@
                 <div class="phone-notch"></div>
                 <div class="phone-screen" id="phoneScreen">
                     <div class="browser-frame" id="browserFrame">
+                        <img id="browserScreenshot" style="display:none;" alt="Browser view">
                         <div class="browser-placeholder" id="browserPlaceholder" style="color:#888;font-size:14px;flex-direction:column;gap:10px;">
                             <div style="font-size:40px;">📱</div>
                             <div>Click "Start Browser" to begin</div>
                         </div>
-                        <img id="browserScreenshot" style="display:none;" alt="Browser view">
+                        <!-- Transparent overlay captures all mouse events -->
+                        <div class="phone-overlay" id="phoneOverlay"></div>
+                    </div>
                     </div>
                     <!-- Simulated cursor -->
                     <div class="sim-cursor" id="simCursor">
@@ -634,85 +641,101 @@
         // ─── Cursor Control ────────────────────────────────────────
 
         const phoneScreen = document.getElementById('phoneScreen');
+        const phoneOverlay = document.getElementById('phoneOverlay');
         const simCursor = document.getElementById('simCursor');
         const phoneFrame = document.getElementById('phoneFrame');
 
-        phoneScreen.addEventListener('mousemove', (e) => {
-            const rect = phoneScreen.getBoundingClientRect();
-            cursorX = e.clientX - rect.left;
-            cursorY = e.clientY - rect.top;
-            simCursor.style.left = cursorX + 'px';
-            simCursor.style.top = cursorY + 'px';
+        // Initially hide cursor
+        simCursor.style.display = 'none';
 
-            if (isDraggingForRecord) {
-                // Show drag line
-            }
-        });
+        function getPos(e) {
+            var rect = phoneScreen.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
 
-        phoneScreen.addEventListener('mouseenter', () => {
+        phoneOverlay.addEventListener('mousemove', function(e) {
+            var pos = getPos(e);
+            cursorX = pos.x;
+            cursorY = pos.y;
             simCursor.style.display = 'block';
+            simCursor.style.left = pos.x + 'px';
+            simCursor.style.top = pos.y + 'px';
         });
 
-        phoneScreen.addEventListener('mouseleave', () => {
+        phoneOverlay.addEventListener('mouseenter', function() {
+            simCursor.style.display = 'block';
+            debug('Mouse entered phone screen', 'info');
+        });
+
+        phoneOverlay.addEventListener('mouseleave', function() {
             simCursor.style.display = 'none';
-            if (isDraggingForRecord) {
-                isDraggingForRecord = false;
-            }
+            if (isDraggingForRecord) isDraggingForRecord = false;
         });
 
-        // Click on screen = execute click on browser
-        phoneScreen.addEventListener('click', (e) => {
-            if (!browserRunning) return;
+        // Left click → execute click on browser
+        phoneOverlay.addEventListener('click', function(e) {
+            if (!browserRunning) { debug('Click ignored: browser not running', 'warn'); return; }
             if (isDraggingForRecord) return;
 
+            var pos = getPos(e);
             simCursor.classList.add('clicking');
-            setTimeout(() => simCursor.classList.remove('clicking'), 200);
+            setTimeout(function() { simCursor.classList.remove('clicking'); }, 200);
 
-            const rect = phoneScreen.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            debug('Click at (' + Math.round(pos.x) + ', ' + Math.round(pos.y) + ')', 'ok');
 
             fetch('/api/browser/click', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({x: Math.round(x), y: Math.round(y)})
-            }).then(r => r.json()).then(data => {
+                body: JSON.stringify({x: Math.round(pos.x), y: Math.round(pos.y)})
+            }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.screenshot) {
                     var img = document.getElementById('browserScreenshot');
                     img.src = data.screenshot;
                     img.style.display = 'block';
                     document.getElementById('browserPlaceholder').style.display = 'none';
                 }
+                if (!data.success) {
+                    debug('Click failed on server', 'error');
+                }
+            }).catch(function(err) {
+                debug('Click error: ' + err.message, 'error');
             });
         });
 
-        // Right-click = show context menu
-        phoneScreen.addEventListener('contextmenu', (e) => {
+        // Right click → show context menu
+        phoneOverlay.addEventListener('contextmenu', function(e) {
             e.preventDefault();
-            const rect = phoneScreen.getBoundingClientRect();
-            contextClickX = Math.round(e.clientX - rect.left);
-            contextClickY = Math.round(e.clientY - rect.top);
+            var pos = getPos(e);
+            contextClickX = Math.round(pos.x);
+            contextClickY = Math.round(pos.y);
+            debug('Right-click at (' + contextClickX + ', ' + contextClickY + ')', 'ok');
 
-            // Get element info
-            fetch('/api/browser/element', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({x: contextClickX, y: contextClickY})
-            }).then(r => r.json()).then(data => {
-                if (data.element && data.element.text) {
-                    document.getElementById('elementInfoBadge').textContent =
-                        `&lt;${data.element.tag}&gt; ${data.element.text.substring(0, 60)}`;
-                }
-            });
+            // Get element info from server
+            if (browserRunning) {
+                fetch('/api/browser/element', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({x: contextClickX, y: contextClickY})
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.element && data.element.text) {
+                        var badge = document.getElementById('elementInfoBadge');
+                        badge.textContent = data.element.tag + ' | ' + data.element.text.substring(0, 60);
+                        badge.style.display = 'block';
+                        badge.style.left = e.clientX + 'px';
+                        badge.style.top = (e.clientY - 30) + 'px';
+                        setTimeout(function() { badge.style.display = 'none'; }, 3000);
+                    }
+                });
+            }
 
-            const menu = document.getElementById('contextMenu');
+            var menu = document.getElementById('contextMenu');
             menu.style.left = e.clientX + 'px';
             menu.style.top = e.clientY + 'px';
             menu.classList.add('show');
         });
 
         // Hide context menu on click elsewhere
-        document.addEventListener('click', (e) => {
+        document.addEventListener('click', function(e) {
             document.getElementById('contextMenu').classList.remove('show');
         });
 
