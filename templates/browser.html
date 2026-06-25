@@ -592,10 +592,13 @@
                 var res = await fetch('/api/browser/screenshot');
                 var data = await res.json();
                 if (data.screenshot) {
-                    document.getElementById('browserScreenshot').src = data.screenshot;
-                    debug('Screenshot taken', 'ok');
+                    var img = document.getElementById('browserScreenshot');
+                    img.src = data.screenshot;
+                    img.style.display = 'block';
+                    document.getElementById('browserPlaceholder').style.display = 'none';
+                    debug('Screenshot taken and displayed, size=' + data.screenshot.length, 'ok');
                 } else {
-                    debug('No screenshot returned', 'warn');
+                    debug('No screenshot returned from server', 'warn');
                 }
             } catch(e) {
                 debug('takeScreenshot error: ' + e.message, 'error');
@@ -608,7 +611,10 @@
                 var res = await fetch('/api/browser/screenshot');
                 var data = await res.json();
                 if (data.screenshot) {
-                    document.getElementById('browserScreenshot').src = data.screenshot;
+                    var img = document.getElementById('browserScreenshot');
+                    img.src = data.screenshot;
+                    img.style.display = 'block';
+                    document.getElementById('browserPlaceholder').style.display = 'none';
                 }
             } catch(e) {}
         }
@@ -660,7 +666,10 @@
                 body: JSON.stringify({x: Math.round(x), y: Math.round(y)})
             }).then(r => r.json()).then(data => {
                 if (data.screenshot) {
-                    document.getElementById('browserScreenshot').src = data.screenshot;
+                    var img = document.getElementById('browserScreenshot');
+                    img.src = data.screenshot;
+                    img.style.display = 'block';
+                    document.getElementById('browserPlaceholder').style.display = 'none';
                 }
             });
         });
