@@ -420,6 +420,13 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // ─── State (declare before all functions) ────────
+        var browserRunning = false;
+        var currentActions = [];
+        var selectedActionIdx = -1;
+        var formMode = 'add';
+        var editingActionIdx = -1;
+
         const socket = io();
         let cursorX = 200, cursorY = 400;
         let isDraggingCursor = false;
@@ -427,11 +434,6 @@
         let contextClickX = 0, contextClickY = 0;
         let isRecordingMode = true;
         let dragStartX = 0, dragStartY = 0, isDraggingForRecord = false;
-        let currentActions = [];
-        let browserRunning = false;
-        let selectedActionIdx = -1;
-        let formMode = 'add'; // 'add' or 'edit'
-        let editingActionIdx = -1;
 
         // ─── Browser Control ───────────────────────────────────────
 
