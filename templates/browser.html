@@ -45,6 +45,7 @@
             overflow: hidden;
             position: relative;
             background: #fff;
+            cursor: none;
         }
         .browser-frame {
             width: 100%;
@@ -64,13 +65,6 @@
             align-items: center;
             justify-content: center;
             pointer-events: none;
-        }
-        /* Transparent overlay to capture all mouse events */
-        .phone-overlay {
-            position: absolute;
-            inset: 0;
-            z-index: 50;
-            background: transparent;
         }
 
         /* Simulated cursor */
@@ -365,8 +359,6 @@
                             <div style="font-size:40px;">📱</div>
                             <div>Click "Start Browser" to begin</div>
                         </div>
-                        <!-- Transparent overlay captures all mouse events -->
-                        <div class="phone-overlay" id="phoneOverlay"></div>
                     </div>
                     </div>
                     <!-- Simulated cursor -->
@@ -640,40 +632,57 @@
 
         // ─── Cursor Control ────────────────────────────────────────
 
-        const phoneScreen = document.getElementById('phoneScreen');
-        const phoneOverlay = document.getElementById('phoneOverlay');
-        const simCursor = document.getElementById('simCursor');
-        const phoneFrame = document.getElementById('phoneFrame');
+        var phoneScreen = document.getElementById('phoneScreen');
+        var simCursor = document.getElementById('simCursor');
+        var phoneFrame = document.getElementById('phoneFrame');
 
         // Initially hide cursor
         simCursor.style.display = 'none';
+
+        // Test: add a debug dot to verify mouse tracking works
+        var debugDot = document.createElement('div');
+        debugDot.id = 'cursorDebugDot';
+        debugDot.style.cssText = 'position:absolute;width:8px;height:8px;background:#FF0000;border-radius:50%;z-index:200;pointer-events:none;display:none;border:2px solid #fff;';
+        phoneScreen.appendChild(debugDot);
 
         function getPos(e) {
             var rect = phoneScreen.getBoundingClientRect();
             return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
 
-        phoneOverlay.addEventListener('mousemove', function(e) {
+        function updateCursor(x, y) {
+            simCursor.style.display = 'block';
+            simCursor.style.left = x + 'px';
+            simCursor.style.top = y + 'px';
+            cursorX = x;
+            cursorY = y;
+            // Debug dot
+            debugDot.style.display = 'block';
+            debugDot.style.left = x + 'px';
+            debugDot.style.top = y + 'px';
+        }
+
+        // ── mousemove ──
+        phoneScreen.addEventListener('mousemove', function(e) {
             var pos = getPos(e);
-            cursorX = pos.x;
-            cursorY = pos.y;
-            simCursor.style.display = 'block';
-            simCursor.style.left = pos.x + 'px';
-            simCursor.style.top = pos.y + 'px';
+            updateCursor(pos.x, pos.y);
         });
 
-        phoneOverlay.addEventListener('mouseenter', function() {
-            simCursor.style.display = 'block';
-            debug('Mouse entered phone screen', 'info');
+        // ── mouseenter/leave ──
+        phoneScreen.addEventListener('mouseenter', function(e) {
+            var pos = getPos(e);
+            updateCursor(pos.x, pos.y);
+            debug('Mouse entered phone screen at (' + Math.round(pos.x) + ', ' + Math.round(pos.y) + ')', 'info');
         });
 
-        phoneOverlay.addEventListener('mouseleave', function() {
+        phoneScreen.addEventListener('mouseleave', function() {
             simCursor.style.display = 'none';
+            debugDot.style.display = 'none';
             if (isDraggingForRecord) isDraggingForRecord = false;
         });
 
-        // Left click → execute click on browser
-        phoneOverlay.addEventListener('click', function(e) {
+        // ── Left click ──
+        phoneScreen.addEventListener('click', function(e) {
             if (!browserRunning) { debug('Click ignored: browser not running', 'warn'); return; }
             if (isDraggingForRecord) return;
 
@@ -681,7 +690,7 @@
             simCursor.classList.add('clicking');
             setTimeout(function() { simCursor.classList.remove('clicking'); }, 200);
 
-            debug('Click at (' + Math.round(pos.x) + ', ' + Math.round(pos.y) + ')', 'ok');
+            debug('LEFT CLICK at (' + Math.round(pos.x) + ', ' + Math.round(pos.y) + ')', 'ok');
 
             fetch('/api/browser/click', {
                 method: 'POST',
@@ -693,22 +702,21 @@
                     img.src = data.screenshot;
                     img.style.display = 'block';
                     document.getElementById('browserPlaceholder').style.display = 'none';
+                    debug('Click executed, screenshot updated', 'ok');
                 }
-                if (!data.success) {
-                    debug('Click failed on server', 'error');
-                }
+                if (!data.success) debug('Server click failed', 'error');
             }).catch(function(err) {
-                debug('Click error: ' + err.message, 'error');
+                debug('Click network error: ' + err.message, 'error');
             });
         });
 
-        // Right click → show context menu
-        phoneOverlay.addEventListener('contextmenu', function(e) {
+        // ── Right click ──
+        phoneScreen.addEventListener('contextmenu', function(e) {
             e.preventDefault();
             var pos = getPos(e);
             contextClickX = Math.round(pos.x);
             contextClickY = Math.round(pos.y);
-            debug('Right-click at (' + contextClickX + ', ' + contextClickY + ')', 'ok');
+            debug('RIGHT CLICK at (' + contextClickX + ', ' + contextClickY + ')', 'ok');
 
             // Get element info from server
             if (browserRunning) {
@@ -734,9 +742,11 @@
             menu.classList.add('show');
         });
 
-        // Hide context menu on click elsewhere
+        // ── Hide context menu on click elsewhere ──
         document.addEventListener('click', function(e) {
-            document.getElementById('contextMenu').classList.remove('show');
+            if (!e.target.closest('.context-menu')) {
+                document.getElementById('contextMenu').classList.remove('show');
+            }
         });
 
         // ─── Recording Actions ─────────────────────────────────────
