@@ -13,7 +13,7 @@ import queue
 from typing import Optional
 
 os.environ.pop("NODE_OPTIONS", None)
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/root/.cache/ms-playwright"
+# Let Playwright use its default browser cache path for this system
 
 from playwright.sync_api import sync_playwright
 
