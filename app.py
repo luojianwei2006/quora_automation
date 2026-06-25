@@ -98,9 +98,12 @@ def api_browser_start():
             browser = get_browser()
             browser.start()
             info = browser.get_page_info()
+            if not info.get("ready"):
+                return jsonify({"status": "error", "error": info.get("error", "Browser failed to start"), "debug": info}), 500
             return jsonify({"status": "ok", "info": info})
         except Exception as e:
-            return jsonify({"status": "error", "error": str(e)}), 500
+            import traceback
+            return jsonify({"status": "error", "error": str(e), "debug": traceback.format_exc()}), 500
 
 
 @app.route("/api/browser/stop", methods=["POST"])

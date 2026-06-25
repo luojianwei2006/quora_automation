@@ -3,6 +3,8 @@ Mobile browser simulation engine using Playwright.
 Thread-safe implementation with a dedicated browser thread.
 """
 import os
+import sys
+import traceback
 import time
 import json
 import base64
@@ -405,7 +407,9 @@ class BrowserEngine:
                 _update_cache()
 
         except Exception as e:
-            self._cached_info = {"ready": False, "error": str(e)}
+            tb = traceback.format_exc()
+            print(f"[BrowserEngine] FATAL: {e}\n{tb}", file=sys.stderr, flush=True)
+            self._cached_info = {"ready": False, "error": str(e), "traceback": tb}
             self._ready.set()
             # Put error result for any pending command
             try:

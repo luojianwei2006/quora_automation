@@ -361,6 +361,7 @@
                 <button onclick="stopBrowser()" style="background:#f44336;">■ Stop</button>
                 <button onclick="takeScreenshot()" style="background:#4CAF50;">📷 Screenshot</button>
             </div>
+            <div id="browserStatusMsg" style="text-align:center;font-size:11px;color:#888;min-height:16px;margin-top:4px;width:393px;"></div>
         </div>
 
         <!-- Action Panel -->
@@ -379,6 +380,9 @@
                 <button class="btn btn-sm btn-secondary" onclick="testSingleStep()">◆ Test Step</button>
             </div>
             <div id="playbackStatus" style="margin-top:8px;font-size:12px;color:#888;"></div>
+            <div class="debug-panel" id="debugPanel" style="margin-top:8px;max-height:150px;overflow-y:auto;background:#111;border-radius:6px;padding:4px;">
+                <div style="font-size:11px;color:#666;padding:2px 4px;">🔍 Debug Log — open browser console for more details</div>
+            </div>
         </div>
     </div>
 
@@ -435,15 +439,50 @@
         let isRecordingMode = true;
         let dragStartX = 0, dragStartY = 0, isDraggingForRecord = false;
 
+        // ─── Debug logger ───────────────────────────────────────────
+        function debug(msg, type) {
+            type = type || 'info';
+            var ts = new Date().toLocaleTimeString();
+            var line = '[' + ts + '] ' + msg;
+            console.log('[Browser]', line);
+
+            var panel = document.getElementById('debugPanel');
+            if (!panel) return;
+            var entry = document.createElement('div');
+            entry.textContent = line;
+            entry.style.cssText = 'font-size:11px;font-family:monospace;padding:2px 4px;' +
+                (type === 'error' ? 'color:#f44336;' :
+                 type === 'ok' ? 'color:#4CAF50;' :
+                 type === 'warn' ? 'color:#FF9800;' : 'color:#888;');
+            panel.prepend(entry);
+            // Keep max 50 lines
+            while (panel.children.length > 50) panel.lastChild.remove();
+        }
+
+        function showStatus(msg, type) {
+            var el = document.getElementById('browserStatusMsg');
+            if (el) {
+                el.textContent = msg;
+                el.style.color = type === 'error' ? '#f44336' :
+                    type === 'ok' ? '#4CAF50' :
+                    type === 'warn' ? '#FF9800' : '#aaa';
+            }
+        }
+
         // ─── Browser Control ───────────────────────────────────────
 
         async function startBrowser() {
-            const btn = document.getElementById('startBrowserBtn');
-            btn.textContent = '⏳ Starting...';
+            debug('startBrowser() called', 'warn');
+            var btn = document.getElementById('startBrowserBtn');
+            btn.textContent = '⏳ ' + ('browser.starting' || 'Starting...');
             btn.disabled = true;
+            showStatus('Starting browser engine...', 'warn');
+
             try {
-                const res = await fetch('/api/browser/start', { method: 'POST' });
-                const data = await res.json();
+                var res = await fetch('/api/browser/start', { method: 'POST' });
+                var data = await res.json();
+                debug('startBrowser response: ' + JSON.stringify(data), data.status === 'ok' ? 'ok' : 'error');
+
                 if (data.status === 'ok') {
                     browserRunning = true;
                     document.getElementById('browserStatusDot').className = 'status-dot online';
@@ -452,19 +491,27 @@
                     document.getElementById('browserScreenshot').style.display = 'block';
                     btn.textContent = '▶ Browser Running';
                     btn.style.background = '#4CAF50';
+                    showStatus('Browser started. Navigate to a URL.', 'ok');
+                    debug('Browser engine started, now navigating...', 'warn');
                     navigateToUrl();
                 } else {
-                    alert('Failed to start browser: ' + (data.error || 'Unknown error'));
+                    showStatus('Failed: ' + (data.error || 'Unknown'), 'error');
+                    debug('FAIL: ' + (data.error || 'Unknown error'), 'error');
+                    alert('❌ Failed to start browser:\n\n' + (data.error || 'Unknown error') + '\n\nCheck: pip install playwright && python -m playwright install chromium');
                     btn.textContent = '▶ Start Browser';
+                    btn.disabled = false;
                 }
             } catch(e) {
-                alert('Error: ' + e.message);
+                debug('EXCEPTION: ' + e.message, 'error');
+                showStatus('Connection error: ' + e.message, 'error');
+                alert('❌ Cannot connect to server:\n\n' + e.message + '\n\nMake sure the Flask server is running on port 5050.');
                 btn.textContent = '▶ Start Browser';
+                btn.disabled = false;
             }
-            btn.disabled = false;
         }
 
         async function stopBrowser() {
+            debug('stopBrowser() called', 'warn');
             try {
                 await fetch('/api/browser/stop', { method: 'POST' });
                 browserRunning = false;
@@ -474,61 +521,92 @@
                 document.getElementById('startBrowserBtn').style.background = '';
                 document.getElementById('browserScreenshot').style.display = 'none';
                 document.getElementById('browserPlaceholder').style.display = 'flex';
+                showStatus('Browser stopped.', 'info');
+                debug('Browser stopped', 'info');
             } catch(e) {
-                console.error(e);
+                debug('stopBrowser error: ' + e.message, 'error');
             }
         }
 
         async function navigateToUrl() {
-            const url = document.getElementById('urlInput').value.trim();
-            if (!url) return;
+            var url = document.getElementById('urlInput').value.trim();
+            if (!url) { debug('navigateToUrl: empty URL, skipping', 'warn'); return; }
+            if (!url.startsWith('http')) url = 'https://' + url;
+
+            debug('navigateToUrl(' + url + ') browserRunning=' + browserRunning, 'warn');
+
             if (!browserRunning) {
+                debug('Browser not running, starting first...', 'warn');
                 await startBrowser();
-                setTimeout(() => navigateToUrl(), 1000);
+                if (browserRunning) {
+                    document.getElementById('urlInput').value = url;
+                    await navigateToUrl();
+                }
                 return;
             }
+
+            showStatus('Navigating to ' + url + ' ...', 'warn');
             try {
-                const res = await fetch('/api/browser/navigate', {
+                var res = await fetch('/api/browser/navigate', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({url: url.startsWith('http') ? url : 'https://' + url})
+                    body: JSON.stringify({url: url})
                 });
-                const data = await res.json();
+                var data = await res.json();
+                debug('navigate response: status=' + data.status + ' info=' + JSON.stringify(data.info||{}), data.status === 'ok' ? 'ok' : 'error');
+
+                if (data.status === 'error') {
+                    showStatus('Navigation error: ' + (data.error || 'Unknown'), 'error');
+                    debug('NAV ERROR: ' + data.error, 'error');
+                    return;
+                }
+
                 if (data.screenshot) {
                     document.getElementById('browserScreenshot').src = data.screenshot;
                     document.getElementById('browserScreenshot').style.display = 'block';
                     document.getElementById('browserPlaceholder').style.display = 'none';
+                    debug('Screenshot loaded, size=' + data.screenshot.length, 'ok');
+                } else {
+                    debug('No screenshot in response!', 'warn');
                 }
+
                 if (data.info) {
                     document.getElementById('urlInput').value = data.info.url || url;
+                    showStatus('Loaded: ' + (data.info.title || data.info.url || url), 'ok');
                 }
             } catch(e) {
-                console.error(e);
+                debug('navigateToUrl EXCEPTION: ' + e.message, 'error');
+                showStatus('Network error: ' + e.message, 'error');
             }
         }
 
         async function refreshPage() {
-            const url = document.getElementById('urlInput').value.trim();
+            var url = document.getElementById('urlInput').value.trim();
+            debug('refreshPage(), current URL=' + url, 'info');
             if (url) await navigateToUrl();
         }
 
         async function takeScreenshot() {
+            debug('takeScreenshot() called', 'info');
             try {
-                const res = await fetch('/api/browser/screenshot');
-                const data = await res.json();
+                var res = await fetch('/api/browser/screenshot');
+                var data = await res.json();
                 if (data.screenshot) {
                     document.getElementById('browserScreenshot').src = data.screenshot;
+                    debug('Screenshot taken', 'ok');
+                } else {
+                    debug('No screenshot returned', 'warn');
                 }
             } catch(e) {
-                console.error(e);
+                debug('takeScreenshot error: ' + e.message, 'error');
             }
         }
 
         async function fetchScreenshot() {
             if (!browserRunning) return;
             try {
-                const res = await fetch('/api/browser/screenshot');
-                const data = await res.json();
+                var res = await fetch('/api/browser/screenshot');
+                var data = await res.json();
                 if (data.screenshot) {
                     document.getElementById('browserScreenshot').src = data.screenshot;
                 }
