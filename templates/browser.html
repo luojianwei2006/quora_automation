@@ -991,6 +991,73 @@
             document.getElementById('actionForm').classList.remove('show');
         }
 
+        // Execute an action immediately on the browser (for live feedback)
+        async function executeActionNow(action) {
+            debug('Executing: ' + action.type + ' at (' + (action.x||0) + ',' + (action.y||0) + ')', 'warn');
+            var endpoint, body = {};
+            body.x = action.x || 0;
+            body.y = action.y || 0;
+
+            switch (action.type) {
+                case 'click':
+                    endpoint = '/api/browser/click';
+                    body.selector = action.selector || '';
+                    break;
+                case 'longpress':
+                    endpoint = '/api/browser/longpress';
+                    break;
+                case 'input':
+                    endpoint = '/api/browser/input';
+                    body.text = action.text || '';
+                    body.selector = action.selector || '';
+                    break;
+                case 'scroll':
+                    endpoint = '/api/browser/scroll';
+                    body.delta_x = action.scroll_delta_x || 0;
+                    body.delta_y = action.scroll_delta_y || 300;
+                    break;
+                case 'navigate':
+                    endpoint = '/api/browser/navigate';
+                    body.url = action.url || '';
+                    break;
+                case 'paste':
+                    endpoint = '/api/browser/input';
+                    body.text = action.text || '';
+                    body.x = action.x || 0;
+                    body.y = action.y || 0;
+                    break;
+                case 'drag':
+                    endpoint = '/api/browser/drag';
+                    body.target_x = action.target_x || (action.x + 100);
+                    body.target_y = action.target_y || (action.y + 100);
+                    break;
+                default:
+                    // screenshot, wait, extract, copy, assert — no immediate browser action
+                    debug('Action type "' + action.type + '" — recorded only (no live execution)', 'info');
+                    fetchScreenshot();
+                    return;
+            }
+
+            try {
+                var res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+                var data = await res.json();
+                if (data.screenshot) {
+                    var img = document.getElementById('browserScreenshot');
+                    img.src = data.screenshot;
+                    img.style.display = 'block';
+                    document.getElementById('browserPlaceholder').style.display = 'none';
+                }
+                debug('Executed: ' + action.type + ' — ' + (data.success ? 'OK' : 'FAILED'), data.success ? 'ok' : 'error');
+            } catch(e) {
+                debug('Execute error: ' + e.message, 'error');
+                fetchScreenshot();
+            }
+        }
+
         function submitForm() {
             const type = document.getElementById('f_type').value;
             const action = {
@@ -1029,9 +1096,11 @@
             updateActionCount();
             closeForm();
 
-            // Refresh browser screenshot after recording
+            // ALSO execute the action immediately on the browser!
             if (browserRunning) {
-                fetchScreenshot();
+                executeActionNow(action);
+            } else {
+                debug('Browser not running, action recorded only', 'warn');
             }
         }
 
