@@ -7,16 +7,20 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
         .browser-layout {
-            display: flex;
+            display: grid;
+            grid-template-columns: auto 300px;
             gap: 20px;
             height: calc(100vh - 80px);
             padding: 20px;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            align-items: flex-start;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .browser-layout {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+            }
         }
         .phone-container {
-            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -251,8 +255,16 @@
 
         /* Right panel - action list + debug */
         .action-panel {
-            flex: 0 0 300px;
             background: #1e1e1e;
+            border-radius: 12px;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            height: 100%;
+            min-height: 0;
+        }1e;
             border-radius: 12px;
             padding: 12px;
             overflow-y: auto;
