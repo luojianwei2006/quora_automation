@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Mock Forum</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+        .header { background: #2196F3; color: #fff; padding: 16px; }
+        .header a { color: #fff; text-decoration: none; font-size: 14px; }
+        .container { padding: 16px; max-width: 500px; margin: 0 auto; }
+        .setting-group { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .setting-group h3 { font-size: 14px; margin-bottom: 10px; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-row .label { font-size: 13px; }
+        .toggle { width: 44px; height: 24px; background: #ccc; border-radius: 12px; position: relative; cursor: pointer; transition: background 0.2s; }
+        .toggle.on { background: #4CAF50; }
+        .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: left 0.2s; }
+        .toggle.on::after { left: 22px; }
+        .btn-save { width: 100%; padding: 12px; background: #4CAF50; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+        .btn-save:hover { background: #388E3C; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/test-page">← Back to Home</a>
+    </div>
+    <div class="container">
+        <div class="setting-group">
+            <h3>🔔 Notifications</h3>
+            <div class="setting-row">
+                <span class="label">Push Notifications</span>
+                <div class="toggle on" id="toggle1" onclick="this.classList.toggle('on'); showMsg()"></div>
+            </div>
+            <div class="setting-row">
+                <span class="label">Email Digests</span>
+                <div class="toggle" id="toggle2" onclick="this.classList.toggle('on'); showMsg()"></div>
+            </div>
+        </div>
+        <div class="setting-group">
+            <h3>🔒 Privacy</h3>
+            <div class="setting-row">
+                <span class="label">Public Profile</span>
+                <div class="toggle on" id="toggle3" onclick="this.classList.toggle('on'); showMsg()"></div>
+            </div>
+        </div>
+        <button class="btn-save" onclick="document.getElementById('saveMsg').style.display='block'">💾 Save Settings</button>
+        <p id="saveMsg" style="display:none;color:#4CAF50;text-align:center;font-size:13px;margin-top:10px;">✅ Settings saved!</p>
+        <p id="changeMsg" style="color:#999;text-align:center;font-size:12px;margin-top:8px;"></p>
+        
+        <p style="text-align:center;font-size:12px;color:#999;margin:24px 0;">
+            🎯 Sub-page for testing Navigate and Click actions
+        </p>
+    </div>
+    <script>
+        function showMsg() {
+            document.getElementById('changeMsg').textContent = '⚠ Changes detected — click Save to persist';
+        }
+    </script>
+</body>
+</html>

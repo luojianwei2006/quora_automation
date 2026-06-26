@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Mock Forum</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+        .header { background: #2196F3; color: #fff; padding: 16px; }
+        .header a { color: #fff; text-decoration: none; font-size: 14px; }
+        .container { padding: 16px; max-width: 500px; margin: 0 auto; }
+        .profile-card { background: #fff; border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .avatar { width: 80px; height: 80px; background: #2196F3; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 36px; color: #fff; }
+        .stat-row { display: flex; justify-content: space-around; margin: 16px 0; }
+        .stat { text-align: center; }
+        .stat .num { font-size: 22px; font-weight: 700; color: #2196F3; }
+        .stat .label { font-size: 11px; color: #999; }
+        .btn { display: block; width: 100%; padding: 12px; background: #2196F3; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin-bottom: 8px; }
+        .btn:hover { background: #1976D2; }
+        .back-link { color: #2196F3; text-decoration: none; font-size: 13px; display: inline-block; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/test-page">← Back to Home</a>
+    </div>
+    <div class="container">
+        <div class="profile-card">
+            <div class="avatar">🤖</div>
+            <h2 id="profileName">Test User</h2>
+            <p style="color:#888;font-size:13px;">@test_user · Joined 2025</p>
+            <div class="stat-row">
+                <div class="stat"><div class="num">42</div><div class="label">Answers</div></div>
+                <div class="stat"><div class="num">128</div><div class="label">Followers</div></div>
+                <div class="stat"><div class="num">15</div><div class="label">Following</div></div>
+            </div>
+            <button class="btn" id="editProfileBtn" onclick="document.getElementById('editMsg').style.display='block'">✏ Edit Profile</button>
+            <p id="editMsg" style="display:none;color:#4CAF50;font-size:12px;margin-top:6px;">✅ Edit mode activated!</p>
+        </div>
+        <p style="text-align:center;font-size:12px;color:#999;margin:16px 0;">
+            🎯 This is a sub-page for testing Navigate actions
+        </p>
+        <a href="/test-page" class="back-link" style="display:block;text-align:center;">← Back to Home</a>
+    </div>
+</body>
+</html>

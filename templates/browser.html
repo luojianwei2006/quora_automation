@@ -346,9 +346,10 @@
         <!-- Phone Container -->
         <div class="phone-container">
             <div class="browser-toolbar">
-                <input type="text" id="urlInput" placeholder="Enter URL..." value="https://www.quora.com">
+                <input type="text" id="urlInput" placeholder="Enter URL..." value="http://localhost:5050/test-page">
                 <button onclick="navigateToUrl()">Go</button>
                 <button onclick="refreshPage()" title="Refresh">↻</button>
+                <button onclick="loadTestPage()" style="background:#FF9800;font-size:11px;" title="Load mock test page">🧪 Test</button>
             </div>
             <div class="phone-frame" id="phoneFrame">
                 <div class="phone-notch"></div>
@@ -605,6 +606,12 @@
             var url = document.getElementById('urlInput').value.trim();
             debug('refreshPage(), current URL=' + url, 'info');
             if (url) await navigateToUrl();
+        }
+
+        function loadTestPage() {
+            document.getElementById('urlInput').value = 'http://localhost:5050/test-page';
+            debug('Loading mock test page', 'warn');
+            navigateToUrl();
         }
 
         async function takeScreenshot() {

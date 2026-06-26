@@ -65,6 +65,22 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/test-page")
+def test_page_home():
+    """Mock forum test page for recording/playback testing."""
+    return render_template("test-pages/home.html")
+
+
+@app.route("/test-page/profile")
+def test_page_profile():
+    return render_template("test-pages/profile.html")
+
+
+@app.route("/test-page/settings")
+def test_page_settings():
+    return render_template("test-pages/settings.html")
+
+
 @app.route("/browser")
 def browser_view():
     """Mobile browser simulator with cursor overlay."""

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mock Forum - Test Page</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #333; padding-bottom: 80px; }
+        .header { background: #2196F3; color: #fff; padding: 16px; position: sticky; top: 0; z-index: 10; }
+        .header h1 { font-size: 18px; }
+        .header .tagline { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+        
+        .container { padding: 12px; max-width: 500px; margin: 0 auto; }
+        
+        /* Search bar */
+        .search-bar { display: flex; gap: 8px; margin: 12px 0; }
+        .search-bar input { flex: 1; padding: 10px 14px; border: 1px solid #ddd; border-radius: 24px; font-size: 14px; }
+        .search-bar button { padding: 10px 20px; background: #2196F3; color: #fff; border: none; border-radius: 24px; font-size: 14px; cursor: pointer; }
+        
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 1px solid #ddd; margin: 16px 0; }
+        .tab { padding: 10px 16px; font-size: 13px; color: #666; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab.active { color: #2196F3; border-bottom-color: #2196F3; font-weight: 600; }
+        
+        /* Question cards */
+        .question-card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .question-card .title { font-size: 15px; font-weight: 600; color: #222; margin-bottom: 6px; cursor: pointer; }
+        .question-card .title:hover { color: #2196F3; }
+        .question-card .meta { font-size: 11px; color: #999; }
+        .question-card .excerpt { font-size: 13px; color: #555; margin-top: 6px; line-height: 1.4; }
+        .question-card .actions { display: flex; gap: 12px; margin-top: 10px; }
+        .question-card .actions span { font-size: 12px; color: #999; cursor: pointer; }
+        .question-card .actions span:hover { color: #2196F3; }
+        
+        /* Answer form */
+        .answer-form { background: #fff; border-radius: 10px; padding: 14px; margin: 16px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .answer-form h3 { font-size: 15px; margin-bottom: 10px; }
+        .answer-form textarea { width: 100%; min-height: 100px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; resize: vertical; }
+        .answer-form .form-row { display: flex; gap: 8px; margin-top: 8px; }
+        .answer-form .form-row input { flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
+        .answer-form .btn-submit { padding: 10px 24px; background: #4CAF50; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 10px; }
+        .answer-form .btn-submit:hover { background: #388E3C; }
+        
+        /* Login form */
+        .login-form { background: #fff; border-radius: 10px; padding: 20px; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .login-form h3 { font-size: 16px; margin-bottom: 14px; }
+        .login-form .field { margin-bottom: 12px; }
+        .login-form .field label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+        .login-form .field input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .login-form .btn-login { width: 100%; padding: 12px; background: #2196F3; color: #fff; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 8px; }
+        
+        /* Notification */
+        .notification { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 100; display: none; }
+        .notification.show { display: block; }
+        .notification.success { background: #4CAF50; }
+        .notification.error { background: #f44336; }
+        
+        /* Spacer for scroll test */
+        .scroll-spacer { height: 200px; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 14px; }
+        .long-content { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+        .long-content p { margin-bottom: 8px; line-height: 1.6; font-size: 13px; color: #555; }
+        
+        /* Copyable text */
+        .copyable { background: #f0f0f0; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px; cursor: pointer; user-select: all; margin: 8px 0; }
+        
+        /* Draggable */
+        .draggable-area { background: #fff; border-radius: 10px; padding: 16px; margin: 16px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .draggable-area h3 { font-size: 14px; margin-bottom: 8px; }
+        .drag-target { width: 60px; height: 60px; background: #FF9800; border-radius: 12px; cursor: grab; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; }
+        
+        /* Link */
+        .link-box { background: #fff; border-radius: 10px; padding: 14px; margin: 16px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .link-box a { color: #2196F3; text-decoration: none; font-size: 14px; }
+        
+        /* Footer nav */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #ddd; display: flex; padding: 8px 0; z-index: 10; }
+        .bottom-nav .nav-item { flex: 1; text-align: center; font-size: 10px; color: #999; cursor: pointer; padding: 4px; }
+        .bottom-nav .nav-item .icon { font-size: 20px; display: block; }
+        .bottom-nav .nav-item.active { color: #2196F3; }
+        
+        .success-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 6px; }
+    </style>
+</head>
+<body>
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <!-- Header -->
+    <div class="header">
+        <h1>🤖 Mock Q&A Forum</h1>
+        <div class="tagline">Test page for browser automation recording</div>
+    </div>
+
+    <div class="container">
+        <!-- ===== SEARCH BAR ===== -->
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search questions...">
+            <button id="searchBtn" onclick="handleSearch()">🔍 Search</button>
+        </div>
+
+        <!-- ===== TABS ===== -->
+        <div class="tabs">
+            <div class="tab active" data-tab="questions">📋 Questions</div>
+            <div class="tab" data-tab="answers">💬 Answers</div>
+            <div class="tab" data-tab="topics">🏷 Topics</div>
+        </div>
+
+        <!-- ===== Login Form ===== -->
+        <div class="login-form" id="loginForm">
+            <h3>🔐 Quick Login</h3>
+            <div class="field">
+                <label>Email</label>
+                <input type="email" id="emailInput" placeholder="user@example.com">
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="passwordInput" placeholder="Enter password">
+            </div>
+            <div class="field">
+                <label>
+                    <input type="checkbox" id="rememberCheck"> Remember me
+                </label>
+            </div>
+            <button class="btn-login" id="loginBtn" onclick="handleLogin()">Sign In</button>
+        </div>
+
+        <!-- ===== QUESTION LIST ===== -->
+        <div id="questionList">
+            <div class="question-card">
+                <div class="title" onclick="showNotification('Clicked question 1', 'info')">
+                    How to automate browser testing with Playwright?
+                    <span class="success-badge">New</span>
+                </div>
+                <div class="meta">Asked by @dev_user · 5 answers · 2 hours ago</div>
+                <div class="excerpt">I'm looking for a way to automate my browser testing workflow. Has anyone used Playwright for this? What are the pros and cons compared to Selenium?</div>
+                <div class="actions">
+                    <span onclick="showNotification('⬆ Upvoted', 'success')">⬆ 42 Upvote</span>
+                    <span onclick="showNotification('💬 Opening answer form...', 'info'); scrollToAnswer()">💬 Answer</span>
+                    <span onclick="showNotification('🔗 Link copied!', 'success')">🔗 Share</span>
+                </div>
+            </div>
+
+            <div class="question-card">
+                <div class="title" onclick="showNotification('Clicked question 2', 'info')">
+                    Best practices for Python web scraping in 2025
+                </div>
+                <div class="meta">Asked by @python_fan · 12 answers · 1 day ago</div>
+                <div class="excerpt">What are the current best practices for web scraping with Python? I've been using BeautifulSoup but wondering if there are better alternatives now.</div>
+                <div class="actions">
+                    <span onclick="showNotification('⬆ Upvoted', 'success')">⬆ 28 Upvote</span>
+                    <span onclick="showNotification('💬 Opening answer form...', 'info'); scrollToAnswer()">💬 Answer</span>
+                    <span onclick="showNotification('🔗 Link copied!', 'success')">🔗 Share</span>
+                </div>
+            </div>
+
+            <div class="question-card">
+                <div class="title" onclick="showNotification('Clicked question 3', 'info')">
+                    Is AI replacing human customer support jobs?
+                    <span class="success-badge">Hot</span>
+                </div>
+                <div class="meta">Asked by @curious_mind · 34 answers · 3 hours ago</div>
+                <div class="excerpt">With the rapid advancement of AI chatbots and automation, I'm wondering if human customer support roles are at risk. What do people in the industry think?</div>
+                <div class="actions">
+                    <span onclick="showNotification('⬆ Upvoted', 'success')">⬆ 56 Upvote</span>
+                    <span onclick="showNotification('💬 Opening answer form...', 'info'); scrollToAnswer()">💬 Answer</span>
+                    <span onclick="showNotification('🔗 Link copied!', 'success')">🔗 Share</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== COPYABLE TEXT ===== -->
+        <div class="link-box">
+            <h3 style="font-size:14px;margin-bottom:8px;">📋 Copyable Code Snippet</h3>
+            <div class="copyable" id="copyBlock" onclick="copyText()">
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto("https://example.com")
+    print(page.title())
+    browser.close()
+            </div>
+            <button onclick="copyText()" style="padding:6px 12px;background:#2196F3;color:#fff;border:none;border-radius:6px;font-size:12px;margin-top:6px;cursor:pointer;">📋 Copy to Clipboard</button>
+        </div>
+
+        <!-- ===== ANSWER FORM ===== -->
+        <div class="answer-form" id="answerForm">
+            <h3>✍ Your Answer</h3>
+            <textarea id="answerText" placeholder="Write your answer here..."></textarea>
+            <div class="form-row">
+                <input type="text" id="nameInput" placeholder="Your name">
+                <input type="text" id="tagsInput" placeholder="Tags (comma separated)">
+            </div>
+            <button class="btn-submit" id="submitAnswerBtn" onclick="submitAnswer()">📨 Submit Answer</button>
+        </div>
+
+        <!-- ===== DRAG TEST ===== -->
+        <div class="draggable-area">
+            <h3>🔄 Drag Test (move the orange box)</h3>
+            <div class="drag-target" id="dragBox" 
+                 style="position:relative;"
+                 onmousedown="startDrag(event)" 
+                 ontouchstart="startDrag(event)">📦</div>
+            <p style="color:#888;font-size:11px;margin-top:8px;">Drag position: <span id="dragPos">0, 0</span></p>
+        </div>
+
+        <!-- ===== LONG CONTENT FOR SCROLL ===== -->
+        <div class="scroll-spacer" style="height:80px;color:#aaa;">⬇ Scroll down for more content ⬇</div>
+
+        <div class="long-content">
+            <h3 style="font-size:14px;margin-bottom:8px;">📖 Article: Getting Started with Automation</h3>
+            <p>Browser automation has become an essential tool for developers and QA engineers. With tools like Playwright, you can simulate user interactions, test web applications, and automate repetitive tasks.</p>
+            <p>The key to successful automation is understanding the DOM structure of your target website. Use CSS selectors and XPath to precisely target elements you want to interact with.</p>
+            <p>When recording automation scripts, always consider error handling. What happens if an element is not found? What if the page takes longer than expected to load? Robust scripts handle these edge cases gracefully.</p>
+            <p id="targetParagraph" style="background:#fffde7;padding:8px;border-radius:4px;border-left:3px solid #FFC107;">
+                🎯 <strong>Target Paragraph:</strong> This is a specific element you can assert against. 
+                It contains the phrase "specific element you can assert against" which makes it easy to test assertion conditions.
+            </p>
+            <p>Playwright supports multiple browsers including Chromium, Firefox, and WebKit. Each browser has its own quirks, so it's important to test your automation across different browsers if you need cross-browser compatibility.</p>
+            <p>For mobile testing, Playwright provides device emulation out of the box. You can simulate iPhone, Android, and various tablet devices with accurate viewport sizes and user agents.</p>
+        </div>
+
+        <!-- ===== NAVIGATION LINK ===== -->
+        <div class="link-box">
+            <a href="/test-page/profile" id="profileLink">👤 Go to Profile Page →</a>
+        </div>
+
+        <div class="link-box">
+            <a href="/test-page/settings" id="settingsLink">⚙ Go to Settings Page →</a>
+        </div>
+
+        <div class="scroll-spacer" style="height:60px;"></div>
+    </div>
+
+    <!-- ===== BOTTOM NAV ===== -->
+    <div class="bottom-nav">
+        <div class="nav-item active">
+            <span class="icon">🏠</span> Home
+        </div>
+        <div class="nav-item" onclick="showNotification('Switched to Search', 'info')">
+            <span class="icon">🔍</span> Search
+        </div>
+        <div class="nav-item" onclick="showNotification('Switched to Notifications', 'info')">
+            <span class="icon">🔔</span> Alerts
+        </div>
+        <div class="nav-item" onclick="showNotification('Switched to Profile', 'info')">
+            <span class="icon">👤</span> Me
+        </div>
+    </div>
+
+    <script>
+        // ─── Notification ──────────────────────────────
+        function showNotification(msg, type) {
+            var n = document.getElementById('notification');
+            n.textContent = msg;
+            n.className = 'notification ' + (type || 'info') + ' show';
+            clearTimeout(n._timeout);
+            n._timeout = setTimeout(function() { n.classList.remove('show'); }, 2000);
+        }
+
+        // ─── Search ────────────────────────────────────
+        function handleSearch() {
+            var q = document.getElementById('searchInput').value.trim();
+            if (!q) { showNotification('Please enter a search term', 'error'); return; }
+            showNotification('🔍 Searching for: ' + q, 'info');
+            document.getElementById('questionList').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ─── Login ─────────────────────────────────────
+        function handleLogin() {
+            var email = document.getElementById('emailInput').value;
+            var pass = document.getElementById('passwordInput').value;
+            if (!email) { showNotification('Please enter email', 'error'); return; }
+            if (!pass) { showNotification('Please enter password', 'error'); return; }
+            showNotification('✅ Logged in as ' + email, 'success');
+        }
+
+        // ─── Answer ────────────────────────────────────
+        function submitAnswer() {
+            var text = document.getElementById('answerText').value;
+            var name = document.getElementById('nameInput').value;
+            if (!text) { showNotification('Please write an answer', 'error'); return; }
+            showNotification('✅ Answer submitted! Thank you ' + (name || 'Anonymous'), 'success');
+            document.getElementById('answerText').value = '';
+        }
+
+        function scrollToAnswer() {
+            document.getElementById('answerForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ─── Copy ──────────────────────────────────────
+        function copyText() {
+            var text = document.getElementById('copyBlock').textContent;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(function() {
+                    showNotification('📋 Copied to clipboard!', 'success');
+                });
+            } else {
+                showNotification('📋 Text selected - use Ctrl+C to copy', 'info');
+            }
+        }
+
+        // ─── Drag ──────────────────────────────────────
+        var isDragging = false, dragStartX = 0, dragStartY = 0, boxStartX = 0, boxStartY = 0;
+        function startDrag(e) {
+            isDragging = true;
+            var evt = e.touches ? e.touches[0] : e;
+            dragStartX = evt.clientX;
+            dragStartY = evt.clientY;
+            var box = document.getElementById('dragBox');
+            boxStartX = parseInt(box.style.left || 0);
+            boxStartY = parseInt(box.style.top || 0);
+        }
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            var box = document.getElementById('dragBox');
+            var dx = e.clientX - dragStartX;
+            var dy = e.clientY - dragStartY;
+            box.style.left = (boxStartX + dx) + 'px';
+            box.style.top = (boxStartY + dy) + 'px';
+            document.getElementById('dragPos').textContent = Math.round(boxStartX+dx) + ', ' + Math.round(boxStartY+dy);
+        });
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            var box = document.getElementById('dragBox');
+            var dx = e.touches[0].clientX - dragStartX;
+            var dy = e.touches[0].clientY - dragStartY;
+            box.style.left = (boxStartX + dx) + 'px';
+            box.style.top = (boxStartY + dy) + 'px';
+        });
+        document.addEventListener('mouseup', function() { isDragging = false; });
+        document.addEventListener('touchend', function() { isDragging = false; });
+
+        // ─── Tab switching ────────────────────────────
+        document.querySelectorAll('.tab').forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+                tab.classList.add('active');
+                showNotification('Switched to ' + tab.textContent.trim(), 'info');
+            });
+        });
+
+        console.log('✅ Mock Q&A Forum loaded — ready for automation testing');
+    </script>
+</body>
+</html>
