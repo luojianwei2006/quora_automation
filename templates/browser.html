@@ -246,19 +246,23 @@
         }
         .browser-toolbar button:hover { background: #1976D2; }
 
-        /* Right panel - action list */
+        /* Right panel - action list + debug */
         .action-panel {
             flex: 1;
             background: #1e1e1e;
             border-radius: 12px;
-            padding: 16px;
+            padding: 12px;
             overflow-y: auto;
-            min-width: 320px;
+            min-width: 280px;
+            max-width: 360px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
         .action-panel h3 {
             color: #fff;
-            margin: 0 0 12px;
-            font-size: 15px;
+            margin: 0;
+            font-size: 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -266,16 +270,22 @@
         .action-list {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
+            max-height: 320px;
+            overflow-y: auto;
+            flex-shrink: 0;
         }
         .action-item {
             background: #2a2a2a;
-            border-radius: 8px;
-            padding: 10px 12px;
+            border-radius: 6px;
+            padding: 6px 10px;
             border-left: 3px solid #555;
             cursor: pointer;
             transition: background 0.15s;
+            font-size: 12px;
         }
+        .action-item.executed-ok { border-left-color: #4CAF50; }
+        .action-item.executed-fail { border-left-color: #f44336; }
         .action-item:hover { background: #333; }
         .action-item .action-header {
             display: flex;
@@ -283,27 +293,22 @@
             align-items: center;
         }
         .action-item .action-type {
-            font-size: 12px;
+            font-size: 11px;
             color: #2196F3;
             font-weight: 600;
             text-transform: uppercase;
         }
         .action-item .action-desc {
-            font-size: 12px;
+            font-size: 11px;
             color: #aaa;
-            margin-top: 2px;
+            margin-top: 1px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
         .action-item .action-delay {
-            font-size: 11px;
+            font-size: 10px;
             color: #666;
-        }
-        .action-item .action-remove {
-            color: #f44336;
-            cursor: pointer;
-            font-size: 14px;
         }
         .action-item.selected {
             border-left-color: #2196F3;
@@ -312,10 +317,40 @@
 
         .action-panel-footer {
             display: flex;
-            gap: 8px;
-            margin-top: 12px;
+            gap: 6px;
             flex-wrap: wrap;
+            flex-shrink: 0;
         }
+
+        /* Debug panel */
+        .debug-panel {
+            flex: 1;
+            min-height: 80px;
+            max-height: 250px;
+            overflow-y: auto;
+            background: #111;
+            border-radius: 6px;
+            padding: 4px;
+            font-size: 11px;
+        }
+        .debug-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px 6px 4px;
+            color: #666;
+            font-size: 10px;
+        }
+        .debug-panel-header button {
+            background: transparent;
+            border: 1px solid #444;
+            color: #888;
+            padding: 1px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .debug-panel-header button:hover { color: #fff; border-color: #f44336; }
 
         /* Element info badge */
         .element-info-badge {
@@ -416,9 +451,13 @@
                 <button class="btn btn-sm btn-danger" onclick="abortPlayback()">■ Stop Play</button>
                 <button class="btn btn-sm btn-secondary" onclick="testSingleStep()">◆ Test Step</button>
             </div>
-            <div id="playbackStatus" style="margin-top:8px;font-size:12px;color:#888;"></div>
-            <div class="debug-panel" id="debugPanel" style="margin-top:8px;max-height:150px;overflow-y:auto;background:#111;border-radius:6px;padding:4px;">
-                <div style="font-size:11px;color:#666;padding:2px 4px;">🔍 Debug Log — open browser console for more details</div>
+            <div id="playbackStatus" style="font-size:11px;color:#888;min-height:18px;flex-shrink:0;"></div>
+            <div class="debug-panel" id="debugPanelContainer">
+                <div class="debug-panel-header">
+                    <span>🔍 Debug Log</span>
+                    <button onclick="clearDebugLog()" title="Clear log">✕ Clear</button>
+                </div>
+                <div id="debugPanel"></div>
             </div>
         </div>
     </div>
@@ -495,6 +534,8 @@
 
             var panel = document.getElementById('debugPanel');
             if (!panel) return;
+            var container = document.getElementById('debugPanelContainer');
+            if (container) container.style.display = 'block';
             var entry = document.createElement('div');
             entry.textContent = line;
             entry.style.cssText = 'font-size:11px;font-family:monospace;padding:2px 4px;' +
@@ -1051,7 +1092,15 @@
                     img.style.display = 'block';
                     document.getElementById('browserPlaceholder').style.display = 'none';
                 }
-                debug('Executed: ' + action.type + ' — ' + (data.success ? 'OK' : 'FAILED'), data.success ? 'ok' : 'error');
+                // Mark action in list
+                var success = data.success || data.status === 'ok';
+                var items = document.querySelectorAll('.action-item');
+                var lastItem = items[items.length - 1];
+                if (lastItem) {
+                    lastItem.classList.remove('executed-ok', 'executed-fail');
+                    lastItem.classList.add(success ? 'executed-ok' : 'executed-fail');
+                }
+                debug('Executed: ' + action.type + ' — ' + (success ? 'OK' : 'FAILED'), success ? 'ok' : 'error');
             } catch(e) {
                 debug('Execute error: ' + e.message, 'error');
                 fetchScreenshot();
@@ -1412,6 +1461,11 @@
                 fetchScreenshot();
             }
         }, 3000);
+
+        function clearDebugLog() {
+            var panel = document.getElementById('debugPanel');
+            if (panel) panel.innerHTML = '';
+        }
 
         console.log('📱 Mobile Browser Simulator loaded');
         console.log('💡 Right-click on the phone screen to record actions');
