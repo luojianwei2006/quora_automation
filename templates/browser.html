@@ -11,6 +11,9 @@
             gap: 20px;
             height: calc(100vh - 80px);
             padding: 20px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            align-items: flex-start;
         }
         .phone-container {
             flex: 0 0 auto;
@@ -248,16 +251,15 @@
 
         /* Right panel - action list + debug */
         .action-panel {
-            flex: 1;
+            flex: 0 0 300px;
             background: #1e1e1e;
             border-radius: 12px;
             padding: 12px;
             overflow-y: auto;
-            min-width: 280px;
-            max-width: 360px;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            height: 100%;
         }
         .action-panel h3 {
             color: #fff;
