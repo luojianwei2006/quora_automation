@@ -7,20 +7,25 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
         .browser-layout {
-            display: grid;
-            grid-template-columns: auto 300px;
+            display: flex;
             gap: 20px;
-            height: calc(100vh - 80px);
+            height: calc(100vh - 48px);
             padding: 20px;
-            align-items: start;
+            overflow-y: auto;
         }
         @media (max-width: 900px) {
             .browser-layout {
-                grid-template-columns: 1fr;
-                overflow-y: auto;
+                flex-direction: column;
+                align-items: center;
+            }
+            .action-panel {
+                width: 393px !important;
+                height: auto !important;
+                flex: none !important;
             }
         }
         .phone-container {
+            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -262,16 +267,8 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            height: 100%;
-            min-height: 0;
-        }1e;
-            border-radius: 12px;
-            padding: 12px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            height: 100%;
+            width: 320px;
+            flex: 0 0 320px;
         }
         .action-panel h3 {
             color: #fff;
@@ -433,7 +430,6 @@
                             <div style="font-size:40px;">📱</div>
                             <div>Click "Start Browser" to begin</div>
                         </div>
-                    </div>
                     </div>
                     <!-- Simulated crosshair cursor -->
                     <div class="sim-cursor" id="simCursor">
