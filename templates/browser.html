@@ -13,14 +13,13 @@
             padding: 20px;
             overflow-y: auto;
         }
-        @media (max-width: 900px) {
+        @media (max-width: 1100px) {
             .browser-layout {
                 flex-direction: column;
                 align-items: center;
             }
-            .action-panel {
+            .action-panel, .info-panel {
                 width: 393px !important;
-                height: auto !important;
                 flex: none !important;
             }
         }
@@ -258,7 +257,7 @@
         }
         .browser-toolbar button:hover { background: #1976D2; }
 
-        /* Right panel - action list + debug */
+        /* Middle column - action list + buttons */
         .action-panel {
             background: #1e1e1e;
             border-radius: 12px;
@@ -267,13 +266,13 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            width: 320px;
-            flex: 0 0 320px;
+            width: 220px;
+            flex: 0 0 220px;
         }
         .action-panel h3 {
             color: #fff;
             margin: 0;
-            font-size: 14px;
+            font-size: 13px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -282,18 +281,18 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
-            max-height: 320px;
+            max-height: 250px;
             overflow-y: auto;
             flex-shrink: 0;
         }
         .action-item {
             background: #2a2a2a;
             border-radius: 6px;
-            padding: 6px 10px;
+            padding: 5px 8px;
             border-left: 3px solid #555;
             cursor: pointer;
             transition: background 0.15s;
-            font-size: 12px;
+            font-size: 11px;
         }
         .action-item.executed-ok { border-left-color: #4CAF50; }
         .action-item.executed-fail { border-left-color: #f44336; }
@@ -304,13 +303,13 @@
             align-items: center;
         }
         .action-item .action-type {
-            font-size: 11px;
+            font-size: 10px;
             color: #2196F3;
             font-weight: 600;
             text-transform: uppercase;
         }
         .action-item .action-desc {
-            font-size: 11px;
+            font-size: 10px;
             color: #aaa;
             margin-top: 1px;
             overflow: hidden;
@@ -318,50 +317,136 @@
             white-space: nowrap;
         }
         .action-item .action-delay {
-            font-size: 10px;
+            font-size: 9px;
             color: #666;
         }
         .action-item.selected {
             border-left-color: #2196F3;
             background: #2a3040;
         }
-
         .action-panel-footer {
             display: flex;
-            gap: 6px;
+            gap: 4px;
             flex-wrap: wrap;
             flex-shrink: 0;
         }
-
-        /* Debug panel */
-        .debug-panel {
-            flex: 1;
-            min-height: 80px;
-            max-height: 250px;
-            overflow-y: auto;
-            background: #111;
-            border-radius: 6px;
-            padding: 4px;
+        .action-panel-footer .btn {
+            padding: 4px 8px;
             font-size: 11px;
         }
-        .debug-panel-header {
+
+        /* Right column - Tabs: Screenshots & Log */
+        .info-panel {
+            background: #1e1e1e;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            width: 280px;
+            flex: 0 0 280px;
+        }
+        .tab-headers {
+            display: flex;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            font-size: 12px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        .tab-btn:hover { color: #ccc; }
+        .tab-btn.active {
+            color: #2196F3;
+            border-bottom-color: #2196F3;
+        }
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            min-height: 0;
+        }
+        .tab-content.active { display: flex; flex-direction: column; }
+        .tab-content-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 2px 6px 4px;
+            padding: 0 0 6px;
             color: #666;
             font-size: 10px;
+            flex-shrink: 0;
         }
-        .debug-panel-header button {
+        .tab-content-header button {
             background: transparent;
             border: 1px solid #444;
             color: #888;
-            padding: 1px 6px;
+            padding: 2px 8px;
             border-radius: 3px;
             cursor: pointer;
             font-size: 10px;
         }
-        .debug-panel-header button:hover { color: #fff; border-color: #f44336; }
+        .tab-content-header button:hover { color: #fff; border-color: #f44336; }
+
+        /* Screenshot gallery */
+        .screenshot-thumbs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .screenshot-thumbs .shot-item {
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #333;
+            cursor: pointer;
+        }
+        .screenshot-thumbs .shot-item img {
+            width: 100%;
+            display: block;
+        }
+        .screenshot-thumbs .shot-item .shot-time {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: #aaa;
+            font-size: 9px;
+            padding: 2px 4px;
+            text-align: center;
+        }
+        .screenshot-thumbs .shot-empty {
+            color: #555;
+            font-size: 13px;
+            text-align: center;
+            padding: 40px 10px;
+        }
+
+        /* Debug log in tab */
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            background: #111;
+            border-radius: 4px;
+            padding: 6px;
+            font-size: 10px;
+            font-family: monospace;
+            min-height: 80px;
+        }
+        .log-content .log-line { margin-bottom: 2px; }
+        .log-content .log-info { color: #9fa8da; }
+        .log-content .log-ok { color: #a5d6a7; }
+        .log-content .log-warn { color: #ffcc80; }
+        .log-content .log-error { color: #ef9a9a; }
 
         /* Element info badge */
         .element-info-badge {
@@ -446,28 +531,45 @@
             <div id="browserStatusMsg" style="text-align:center;font-size:11px;color:#888;min-height:16px;margin-top:4px;width:393px;"></div>
         </div>
 
-        <!-- Action Panel -->
+        <!-- Action Panel (middle column) -->
         <div class="action-panel" id="actionPanel">
             <h3>
-                <span>📋 Recorded Actions</span>
-                <span style="font-size:12px;color:#888;" id="actionCount">0 steps</span>
+                <span>📋 Events</span>
+                <span style="font-size:11px;color:#888;" id="actionCount">0</span>
             </h3>
             <div class="action-list" id="actionList"></div>
             <div class="action-panel-footer">
-                <button class="btn btn-sm btn-primary" onclick="clearActions()">Clear All</button>
-                <button class="btn btn-sm btn-secondary" onclick="saveRecording()">💾 Save</button>
-                <button class="btn btn-sm btn-success" onclick="loadRecordingUI()">📂 Load</button>
-                <button class="btn btn-sm btn-warning" onclick="startPlayback()">▶ Play All</button>
-                <button class="btn btn-sm btn-danger" onclick="abortPlayback()">■ Stop Play</button>
-                <button class="btn btn-sm btn-secondary" onclick="testSingleStep()">◆ Test Step</button>
+                <button class="btn btn-sm btn-primary" onclick="clearActions()" title="Clear All">✕</button>
+                <button class="btn btn-sm btn-secondary" onclick="saveRecording()">💾</button>
+                <button class="btn btn-sm btn-success" onclick="loadRecordingUI()">📂</button>
+                <button class="btn btn-sm btn-warning" onclick="startPlayback()">▶</button>
+                <button class="btn btn-sm btn-danger" onclick="abortPlayback()">■</button>
+                <button class="btn btn-sm btn-secondary" onclick="testSingleStep()">◆</button>
             </div>
-            <div id="playbackStatus" style="font-size:11px;color:#888;min-height:18px;flex-shrink:0;"></div>
-            <div class="debug-panel" id="debugPanelContainer">
-                <div class="debug-panel-header">
-                    <span>🔍 Debug Log</span>
+            <div id="playbackStatus" style="font-size:10px;color:#888;min-height:16px;flex-shrink:0;"></div>
+        </div>
+
+        <!-- Info Panel (right column) - Tabs -->
+        <div class="info-panel" id="infoPanel">
+            <div class="tab-headers">
+                <button class="tab-btn active" onclick="switchTab('screenshots')">📷 Screenshots</button>
+                <button class="tab-btn" onclick="switchTab('log')">🔍 Log</button>
+            </div>
+            <div class="tab-content active" id="tab-screenshots">
+                <div class="tab-content-header">
+                    <span>Gallery</span>
+                    <button onclick="clearScreenshots()" title="Clear all screenshots">✕ Clear</button>
+                </div>
+                <div class="screenshot-thumbs" id="screenshotThumbs">
+                    <div class="shot-empty">No screenshots yet<br>Click 📷 Screenshot</div>
+                </div>
+            </div>
+            <div class="tab-content" id="tab-log">
+                <div class="tab-content-header">
+                    <span>Messages</span>
                     <button onclick="clearDebugLog()" title="Clear log">✕ Clear</button>
                 </div>
-                <div id="debugPanel"></div>
+                <div class="log-content" id="debugPanel"></div>
             </div>
         </div>
     </div>
@@ -528,6 +630,7 @@
         var selectedActionIdx = -1;
         var formMode = 'add';
         var editingActionIdx = -1;
+        var screenshotHistory = [];  // Store screenshots for gallery
 
         let cursorX = 200, cursorY = 400;
         let isDraggingCursor = false;
@@ -537,6 +640,15 @@
         let dragStartX = 0, dragStartY = 0, isDraggingForRecord = false;
 
         // ─── Debug logger ───────────────────────────────────────────
+        // ─── Tab Switching ──────────────────────────────────
+        function switchTab(name) {
+            document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+            document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+            document.querySelector('.tab-btn[onclick="switchTab(\'' + name + '\')"]').classList.add('active');
+            document.getElementById('tab-' + name).classList.add('active');
+        }
+
+        // ─── Debug Log ──────────────────────────────────────
         function debug(msg, type) {
             type = type || 'info';
             var ts = new Date().toLocaleTimeString();
@@ -545,17 +657,57 @@
 
             var panel = document.getElementById('debugPanel');
             if (!panel) return;
-            var container = document.getElementById('debugPanelContainer');
-            if (container) container.style.display = 'block';
             var entry = document.createElement('div');
+            entry.className = 'log-line log-' + type;
             entry.textContent = line;
-            entry.style.cssText = 'font-size:11px;font-family:monospace;padding:2px 4px;' +
-                (type === 'error' ? 'color:#f44336;' :
-                 type === 'ok' ? 'color:#4CAF50;' :
-                 type === 'warn' ? 'color:#FF9800;' : 'color:#888;');
             panel.prepend(entry);
-            // Keep max 50 lines
-            while (panel.children.length > 50) panel.lastChild.remove();
+            while (panel.children.length > 200) panel.lastChild.remove();
+        }
+
+        function clearDebugLog() {
+            var panel = document.getElementById('debugPanel');
+            if (panel) panel.innerHTML = '';
+        }
+
+        // ─── Screenshot Gallery ─────────────────────────────
+        function addToScreenshotGallery(dataUrl) {
+            var now = new Date();
+            var ts = now.toLocaleTimeString();
+            screenshotHistory.push({ dataUrl: dataUrl, time: ts });
+            renderScreenshotGallery();
+        }
+
+        function renderScreenshotGallery() {
+            var container = document.getElementById('screenshotThumbs');
+            if (!container) return;
+            container.innerHTML = '';
+            if (screenshotHistory.length === 0) {
+                container.innerHTML = '<div class="shot-empty">No screenshots yet<br>Click 📷 Screenshot</div>';
+                return;
+            }
+            for (var i = screenshotHistory.length - 1; i >= 0; i--) {
+                var shot = screenshotHistory[i];
+                var item = document.createElement('div');
+                item.className = 'shot-item';
+                item.title = 'Click to view full size';
+                item.onclick = (function(dataUrl) {
+                    return function() {
+                        var img = document.getElementById('browserScreenshot');
+                        img.src = dataUrl;
+                        img.style.display = 'block';
+                        document.getElementById('browserPlaceholder').style.display = 'none';
+                        switchTab('screenshots');
+                    };
+                })(shot.dataUrl);
+                item.innerHTML = '<img src="' + shot.dataUrl + '" alt="Screenshot"><div class="shot-time">' + shot.time + '</div>';
+                container.appendChild(item);
+            }
+        }
+
+        function clearScreenshots() {
+            screenshotHistory = [];
+            renderScreenshotGallery();
+            debug('Screenshots cleared', 'info');
         }
 
         function showStatus(msg, type) {
@@ -701,7 +853,8 @@
                     img.src = data.screenshot;
                     img.style.display = 'block';
                     document.getElementById('browserPlaceholder').style.display = 'none';
-                    debug('Screenshot taken and displayed, size=' + data.screenshot.length, 'ok');
+                    addToScreenshotGallery(data.screenshot);
+                    debug('Screenshot taken, size=' + data.screenshot.length, 'ok');
                 } else {
                     debug('No screenshot returned from server', 'warn');
                 }
@@ -1472,11 +1625,6 @@
                 fetchScreenshot();
             }
         }, 3000);
-
-        function clearDebugLog() {
-            var panel = document.getElementById('debugPanel');
-            if (panel) panel.innerHTML = '';
-        }
 
         console.log('📱 Mobile Browser Simulator loaded');
         console.log('💡 Right-click on the phone screen to record actions');
