@@ -1,6 +1,7 @@
 """
 Mobile browser simulation engine using Playwright.
 Thread-safe implementation with a dedicated browser thread.
+Includes anti-detection stealth measures and human-like behavior simulation.
 """
 import os
 import sys
@@ -8,16 +9,18 @@ import traceback
 import time
 import json
 import base64
+import random
+import math
 import threading
 import queue
 from typing import Optional
 
 os.environ.pop("NODE_OPTIONS", None)
-# Let Playwright use its default browser cache path for this system
 
 from playwright.sync_api import sync_playwright
 
-# Mobile device profiles
+# ─── Mobile Device Profiles ──────────────────────────────
+
 IPHONE_14_PRO_MAX = {
     "user_agent": (
         "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
@@ -46,10 +49,132 @@ MOBILE_PROFILES = {
     "galaxy_s23": GALAXY_S23,
 }
 
+# ─── Stealth Script ──────────────────────────────────────
+# Injected into every page to hide automation traces.
+
+STEALTH_SCRIPT = """
+// === Anti-Detection Stealth ===
+(function() {
+    'use strict';
+
+    // 1. Hide webdriver flag (most common detection)
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+
+    // 2. Fake plugins array (empty plugins = bot signal)
+    Object.defineProperty(navigator, 'plugins', {
+        get: () => {
+            const plugins = [
+                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format', length: 1 },
+                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '', length: 1 },
+                { name: 'Native Client', filename: 'internal-nacl-plugin', description: '', length: 2 },
+            ];
+            plugins.item = (i) => plugins[i] || null;
+            plugins.namedItem = (n) => plugins.find(p => p.name === n) || null;
+            plugins.refresh = () => {};
+            return plugins;
+        }
+    });
+
+    // 3. Override permissions query to look natural
+    const originalQuery = window.navigator.permissions.query;
+    window.navigator.permissions.query = (parameters) => (
+        parameters.name === 'notifications' ?
+            Promise.resolve({ state: Notification.permission, onchange: null }) :
+            originalQuery(parameters)
+    );
+
+    // 4. Hide Chrome automation extension
+    Object.defineProperty(navigator, 'chrome', {
+        get: () => ({
+            runtime: {},
+            loadTimes: function() {},
+            csi: function() {},
+            app: {}
+        })
+    });
+
+    // 5. Fake languages
+    Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en']
+    });
+
+    // 6. Remove Playwright-specific marks
+    delete window.__playwright__binding__;
+    delete window.__pwInitScripts;
+    delete window.__playwright;
+
+    // 7. Override toString on native functions to look natural
+    const nativeToString = Function.prototype.toString;
+    Function.prototype.toString = function() {
+        if (this === window.navigator.permissions.query) {
+            return 'function query() { [native code] }';
+        }
+        return nativeToString.call(this);
+    };
+
+    // 8. Fix Intl.DateTimeFormat for headless detection
+    const originalDateTimeFormat = Intl.DateTimeFormat;
+    Intl.DateTimeFormat = function(locales, options) {
+        return new originalDateTimeFormat(locales, options || { timeZone: 'America/New_York' });
+    };
+    Intl.DateTimeFormat.prototype = originalDateTimeFormat.prototype;
+
+    // 9. Override hardware concurrency (headless often reports 1)
+    Object.defineProperty(navigator, 'hardwareConcurrency', {
+        get: () => 8
+    });
+
+    // 10. Override deviceMemory
+    Object.defineProperty(navigator, 'deviceMemory', {
+        get: () => 8
+    });
+
+})();
+"""
+
+
+# ─── Human-like Behavior Helpers ─────────────────────────
+
+def _human_delay(min_ms: int = 50, max_ms: int = 300) -> float:
+    """Random delay between actions to mimic human reaction time."""
+    return random.randint(min_ms, max_ms) / 1000.0
+
+
+def _bezier_curve(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
+    """Cubic bezier interpolation."""
+    return (
+        (1 - t) ** 3 * p0
+        + 3 * (1 - t) ** 2 * t * p1
+        + 3 * (1 - t) * t ** 2 * p2
+        + t ** 3 * p3
+    )
+
+
+def _generate_mouse_path(start_x: int, start_y: int, end_x: int, end_y: int, steps: int = 30):
+    """Generate a human-like mouse movement path using bezier curves."""
+    # Add random overshoot and correction
+    mid_x = (start_x + end_x) / 2 + random.randint(-40, 40)
+    mid_y = (start_y + end_y) / 2 + random.randint(-30, 30)
+    # Control points with slight randomness
+    cp1_x = start_x + (mid_x - start_x) * random.uniform(0.3, 0.7)
+    cp1_y = start_y + random.randint(-20, 20)
+    cp2_x = mid_x + (end_x - mid_x) * random.uniform(0.3, 0.7)
+    cp2_y = end_y + random.randint(-20, 20)
+
+    path = []
+    for i in range(steps + 1):
+        t = i / steps
+        # Ease-in-out timing
+        eased_t = t ** 2 * (3 - 2 * t) if t < 0.5 else 1 - (-2 * t + 2) ** 2 / 2
+        x = _bezier_curve(eased_t, start_x, cp1_x, cp2_x, end_x)
+        y = _bezier_curve(eased_t, start_y, cp1_y, cp2_y, end_y)
+        path.append((int(x), int(y)))
+    return path
+
 
 class BrowserEngine:
     """
-    Thread-safe mobile browser simulator.
+    Thread-safe mobile browser simulator with anti-detection stealth.
     Runs Playwright on a dedicated background thread;
     commands are queued and results returned synchronously.
     """
@@ -96,9 +221,8 @@ class BrowserEngine:
         self._worker = threading.Thread(target=self._browser_loop, daemon=True)
         self._worker.start()
 
-        # Wait for browser to be ready
-        if not self._ready.wait(timeout=20):
-            raise RuntimeError("Browser failed to start within 20s")
+        if not self._ready.wait(timeout=30):
+            raise RuntimeError("Browser failed to start within 30s")
 
     def close(self):
         """Stop the browser."""
@@ -209,10 +333,32 @@ class BrowserEngine:
 
         try:
             pw = sync_playwright().start()
+
+            # ── Browser args to hide automation ──
+            browser_args = [
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-infobars",
+                "--disable-background-networking",
+                "--disable-sync",
+                "--disable-default-apps",
+                "--hide-scrollbars",
+                "--metrics-recording-only",
+                "--mute-audio",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-features=TranslateUI,BlinkGenPropertyTrees",
+                "--disable-ipc-flooding-protection",
+            ]
+
             browser = pw.chromium.launch(
                 headless=True,
-                args=["--disable-web-security", "--disable-features=IsolateOrigins,site-per-process"],
+                args=browser_args,
             )
+
+            # ── Context with realistic fingerprint ──
             context = browser.new_context(
                 user_agent=self._profile["user_agent"],
                 viewport=self._profile["viewport"],
@@ -221,10 +367,29 @@ class BrowserEngine:
                 has_touch=self._profile["has_touch"],
                 locale="en-US",
                 timezone_id="America/New_York",
+                permissions=["geolocation"],
+                geolocation={"latitude": 40.7128, "longitude": -74.0060},  # NYC
+                extra_http_headers={
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "DNT": "1",
+                    "Upgrade-Insecure-Requests": "1",
+                },
             )
+
+            # ── Inject stealth script on every new page ──
+            context.add_init_script(STEALTH_SCRIPT)
+
             page = context.new_page()
 
-            # Update cache
+            # ── Randomize viewport slightly to avoid fingerprinting ──
+            w, h = self._profile["viewport"]["width"], self._profile["viewport"]["height"]
+            page.set_viewport_size({
+                "width": w + random.randint(-2, 2),
+                "height": h + random.randint(-2, 2),
+            })
+
             self._cached_info = {
                 "ready": True,
                 "url": "about:blank",
@@ -266,12 +431,81 @@ class BrowserEngine:
                 except Exception:
                     return None
 
-            # Command handler
+            # ── Human-like action helpers (must run in browser thread) ──
+
+            def _human_mouse_move(target_x: int, target_y: int):
+                """Move mouse like a human: bezier path + variable steps."""
+                try:
+                    # Get current mouse position approximation
+                    js_pos = page.evaluate("""
+                        ({x: window._lastMouseX || 200, y: window._lastMouseY || 400})
+                    """)
+                    start_x, start_y = js_pos["x"], js_pos["y"]
+                except Exception:
+                    start_x, start_y = 200, 400
+
+                # Generate path
+                path = _generate_mouse_path(start_x, start_y, target_x, target_y, steps=25)
+                for px, py in path:
+                    page.mouse.move(px, py)
+                    time.sleep(random.uniform(0.005, 0.015))
+
+                # Save position for next movement
+                page.evaluate(f"window._lastMouseX = {target_x}; window._lastMouseY = {target_y};")
+
+            def _human_type(text: str):
+                """Type text with variable delays between keystrokes."""
+                for char in text:
+                    page.keyboard.type(char)
+                    # Variable typing speed: faster for common chars
+                    if char in " etaoinsrh":
+                        time.sleep(random.uniform(0.03, 0.08))
+                    else:
+                        time.sleep(random.uniform(0.06, 0.15))
+
+            def _human_scroll(scroll_y: int):
+                """Scroll with easing, like a human."""
+                current = page.evaluate("window.scrollY")
+                target = current + scroll_y
+                steps = random.randint(8, 15)
+                for i in range(1, steps + 1):
+                    t = i / steps
+                    # Ease-out cubic
+                    eased = 1 - (1 - t) ** 3
+                    pos = current + scroll_y * eased
+                    page.evaluate(f"window.scrollTo(0, {int(pos)})")
+                    time.sleep(random.uniform(0.02, 0.06))
+
+            def _random_micro_pause():
+                """Tiny random pause like a human thinking."""
+                time.sleep(random.uniform(0.1, 0.5))
+
+            def _simulate_human_presence():
+                """Occasionally do random micro-actions to simulate a real user."""
+                actions = random.randint(0, 2)
+                for _ in range(actions):
+                    r = random.random()
+                    if r < 0.3:
+                        # Tiny scroll wiggle
+                        page.evaluate(f"window.scrollBy(0, {random.randint(-5, 5)})")
+                    elif r < 0.6:
+                        # Move mouse a tiny bit
+                        try:
+                            js_x = page.evaluate("window._lastMouseX || 200")
+                            js_y = page.evaluate("window._lastMouseY || 400")
+                            page.mouse.move(
+                                js_x + random.randint(-10, 10),
+                                js_y + random.randint(-10, 10),
+                            )
+                        except Exception:
+                            pass
+                    time.sleep(random.uniform(0.05, 0.2))
+
+            # ── Main command loop ──
             while self._running:
                 try:
                     cmd, params = self._cmd_queue.get(timeout=0.5)
                 except queue.Empty:
-                    # Periodically update cache
                     if page and not page.is_closed():
                         _update_cache()
                     continue
@@ -282,67 +516,111 @@ class BrowserEngine:
                 result = {"status": "ok"}
                 try:
                     if cmd == "navigate":
-                        page.goto(params["url"], wait_until="networkidle", timeout=30000)
+                        page.goto(params["url"], wait_until="domcontentloaded", timeout=30000)
+                        # Wait a bit like a human looking at the page
+                        time.sleep(random.uniform(0.5, 1.5))
+                        _simulate_human_presence()
                         result["success"] = True
 
                     elif cmd == "click":
+                        _random_micro_pause()
+                        x, y = params.get("x", 0), params.get("y", 0)
                         if params.get("selector"):
-                            page.click(params["selector"], timeout=10000)
-                        else:
-                            page.mouse.click(params["x"], params["y"])
+                            # Get element position for human movement
+                            box = page.locator(params["selector"]).bounding_box()
+                            if box:
+                                x = box["x"] + box["width"] / 2
+                                y = box["y"] + box["height"] / 2
+                        # Human-like movement to target
+                        _human_mouse_move(x, y)
+                        time.sleep(random.uniform(0.05, 0.15))
+                        page.mouse.click(x, y)
+                        _random_micro_pause()
                         result["success"] = True
 
                     elif cmd == "longpress":
-                        page.mouse.move(params["x"], params["y"])
+                        _random_micro_pause()
+                        x, y = params["x"], params["y"]
+                        _human_mouse_move(x, y)
+                        time.sleep(random.uniform(0.05, 0.1))
                         page.mouse.down()
                         time.sleep(params.get("duration", 1000) / 1000)
                         page.mouse.up()
+                        _random_micro_pause()
                         result["success"] = True
 
                     elif cmd == "drag":
+                        _random_micro_pause()
                         x, y = params["x"], params["y"]
                         tx, ty = params.get("tx", x + 100), params.get("ty", y + 100)
-                        page.mouse.move(x, y)
+                        _human_mouse_move(x, y)
+                        time.sleep(random.uniform(0.05, 0.1))
                         page.mouse.down()
-                        steps = 20
-                        for i in range(1, steps + 1):
-                            cx = x + (tx - x) * i // steps
-                            cy = y + (ty - y) * i // steps
-                            page.mouse.move(cx, cy)
-                            time.sleep(0.01)
+                        # Human-like drag with multiple intermediate steps
+                        path = _generate_mouse_path(x, y, tx, ty, steps=20)
+                        for px, py in path:
+                            page.mouse.move(px, py)
+                            time.sleep(random.uniform(0.008, 0.02))
                         page.mouse.up()
+                        _random_micro_pause()
                         result["success"] = True
 
                     elif cmd == "input":
+                        _random_micro_pause()
+                        x, y = params.get("x", 0), params.get("y", 0)
+                        text = params.get("text", "")
                         if params.get("selector"):
-                            page.fill(params["selector"], params.get("text", ""), timeout=10000)
+                            # Click the field first with human movement
+                            box = page.locator(params["selector"]).bounding_box()
+                            if box:
+                                x = box["x"] + box["width"] / 2
+                                y = box["y"] + box["height"] / 2
+                            _human_mouse_move(x, y)
+                            time.sleep(random.uniform(0.05, 0.15))
+                            page.click(params["selector"])
+                            time.sleep(random.uniform(0.1, 0.3))
+                            # Clear existing text and type
+                            page.fill(params["selector"], "")
+                            time.sleep(random.uniform(0.05, 0.15))
+                            _human_type(text)
                         else:
-                            page.mouse.click(params.get("x", 0), params.get("y", 0))
-                            time.sleep(0.2)
-                            page.keyboard.type(params.get("text", ""), delay=50)
+                            _human_mouse_move(x, y)
+                            time.sleep(random.uniform(0.05, 0.1))
+                            page.mouse.click(x, y)
+                            time.sleep(random.uniform(0.1, 0.3))
+                            _human_type(text)
+                        _random_micro_pause()
                         result["success"] = True
 
                     elif cmd == "scroll":
-                        page.evaluate(f"window.scrollBy({params.get('dx', 0)}, {params.get('dy', 300)})")
+                        _random_micro_pause()
+                        dy = params.get("dy", 300)
+                        _human_scroll(dy)
+                        _random_micro_pause()
                         result["success"] = True
 
                     elif cmd == "back":
-                        page.go_back(wait_until="networkidle")
+                        page.go_back(wait_until="domcontentloaded")
+                        time.sleep(random.uniform(0.3, 0.8))
                         result["success"] = True
 
                     elif cmd == "refresh":
-                        page.reload(wait_until="networkidle")
+                        page.reload(wait_until="domcontentloaded")
+                        time.sleep(random.uniform(0.5, 1.0))
                         result["success"] = True
 
                     elif cmd == "copy":
                         page.keyboard.press("Control+C")
+                        _random_micro_pause()
                         result["success"] = True
 
                     elif cmd == "paste":
+                        _random_micro_pause()
                         if params.get("text"):
-                            page.keyboard.type(params["text"], delay=30)
+                            _human_type(params["text"])
                         else:
                             page.keyboard.press("Control+V")
+                        _random_micro_pause()
                         result["success"] = True
 
                     elif cmd == "extract":
@@ -411,7 +689,6 @@ class BrowserEngine:
             print(f"[BrowserEngine] FATAL: {e}\n{tb}", file=sys.stderr, flush=True)
             self._cached_info = {"ready": False, "error": str(e), "traceback": tb}
             self._ready.set()
-            # Put error result for any pending command
             try:
                 self._result_queue.put({"status": "error", "error": str(e)})
             except Exception:
