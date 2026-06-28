@@ -1459,35 +1459,70 @@
         async function runSingleEvent(idx) {
             const action = currentActions[idx];
             if (!action) return;
-            document.getElementById('playbackStatus').textContent = `▶ Running step ${idx + 1}...`;
-            debug(`Running step ${idx + 1}: ${typeLabels[action.type] || action.type}`, 'info');
+
+            // Build detail info
+            var detail = `${typeLabels[action.type] || action.type}`;
+            if (action.x || action.y) detail += ` @(${action.x},${action.y})`;
+            if (action.text) detail += ` "${action.text.substring(0,30)}"`;
+            if (action.selector) detail += ` [${action.selector}]`;
+            if (action.url) detail += ` → ${action.url}`;
+
+            // Flash the action item
+            var item = document.querySelectorAll('.action-item')[idx];
+            if (item) {
+                item.style.background = '#1a3a5c';
+                item.style.transition = 'background 0.15s';
+            }
+
+            document.getElementById('playbackStatus').textContent = `▶ Running step ${idx + 1}: ${detail}`;
+            debug(`▶ Step ${idx + 1}: ${detail}`, 'warn');
+
             try {
-                const res = await fetch('/api/play/test-step', {
+                var res = await fetch('/api/play/test-step', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(action)
                 });
-                const data = await res.json();
+                var data = await res.json();
                 if (data.status === 'ok') {
-                    const result = data.result;
-                    const status = result.success ? '✅ Passed' : '❌ Failed';
-                    document.getElementById('playbackStatus').textContent =
-                        `${status} step ${idx + 1}: ${typeLabels[action.type] || action.type}` +
-                        ` (${(result.duration_ms / 1000).toFixed(1)}s)` +
-                        (result.error ? ` - ${result.error}` : '');
-                    debug(`Step ${idx + 1}: ${status} (${(result.duration_ms / 1000).toFixed(1)}s)`, result.success ? 'ok' : 'error');
+                    var result = data.result;
+                    var status = result.success ? '✅' : '❌';
+                    document.getElementById('playbackStatus').innerHTML =
+                        `${status} <b>Step ${idx + 1}</b>: ${detail} ` +
+                        `<small>(${(result.duration_ms / 1000).toFixed(1)}s)</small>` +
+                        (result.error ? ` <span style="color:#f44336">${result.error}</span>` : '');
+                    debug(`${status} Step ${idx + 1}: ${detail} (${(result.duration_ms / 1000).toFixed(1)}s)`, result.success ? 'ok' : 'error');
+
+                    // Update screenshot and add to gallery
                     if (result.screenshot) {
                         document.getElementById('browserScreenshot').src = result.screenshot;
                         document.getElementById('browserScreenshot').style.display = 'block';
                         document.getElementById('browserPlaceholder').style.display = 'none';
+                        addToScreenshotGallery(result.screenshot);
+                    }
+
+                    // Flash item green/red
+                    if (item) {
+                        item.style.background = result.success ? '#1b3a1b' : '#3a1a1a';
+                        setTimeout(function() { item.style.background = ''; }, 800);
                     }
                 } else {
-                    document.getElementById('playbackStatus').textContent = '❌ Error: ' + (data.error || 'Unknown');
-                    debug(`Step ${idx + 1} error: ${data.error || 'Unknown'}`, 'error');
+                    document.getElementById('playbackStatus').innerHTML =
+                        '<span style="color:#f44336">❌ Error:</span> ' + (data.error || 'Unknown');
+                    debug(`Step ${idx + 1} ERROR: ${data.error || 'Unknown'}`, 'error');
+                    if (item) {
+                        item.style.background = '#3a1a1a';
+                        setTimeout(function() { item.style.background = ''; }, 1000);
+                    }
                 }
             } catch(e) {
-                document.getElementById('playbackStatus').textContent = '❌ Error: ' + e.message;
-                debug(`Step ${idx + 1} error: ${e.message}`, 'error');
+                document.getElementById('playbackStatus').innerHTML =
+                    '<span style="color:#f44336">❌ Error:</span> ' + e.message;
+                debug(`Step ${idx + 1} ERROR: ${e.message}`, 'error');
+                if (item) {
+                    item.style.background = '#3a1a1a';
+                    setTimeout(function() { item.style.background = ''; }, 1000);
+                }
             }
         }
 
