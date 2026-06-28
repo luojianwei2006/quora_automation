@@ -596,6 +596,13 @@
         <div class="menu-item" onclick="inspectElement()"><span class="icon">🔍</span> Inspect Element</div>
     </div>
 
+    <!-- Event Item Context Menu (right-click on recorded event) -->
+    <div class="context-menu" id="eventContextMenu">
+        <div class="menu-title">Event Actions</div>
+        <div class="menu-item" onclick="editEventFromMenu()"><span class="icon">✏️</span> Edit</div>
+        <div class="menu-item" onclick="deleteEventFromMenu()" style="color:#f44336;"><span class="icon">🗑️</span> Delete</div>
+    </div>
+
     <!-- Action Parameter Form -->
     <div class="action-form" id="actionForm">
         <div class="action-form-content" id="actionFormContent">
@@ -629,6 +636,7 @@
         var browserRunning = false;
         var currentActions = [];
         var selectedActionIdx = -1;
+        var _eventMenuIdx = -1;  // For right-click event context menu
         var formMode = 'add';
         var editingActionIdx = -1;
         var screenshotHistory = [];  // Store screenshots for gallery
@@ -984,10 +992,11 @@
             menu.classList.add('show');
         });
 
-        // ── Hide context menu on click elsewhere ──
+        // ── Hide context menus on click elsewhere ──
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.context-menu')) {
                 document.getElementById('contextMenu').classList.remove('show');
+                document.getElementById('eventContextMenu').classList.remove('show');
             }
         });
 
@@ -1346,7 +1355,17 @@
                     <div class="action-desc">${desc.substring(0, 80)}</div>
                 `;
                 item.onclick = () => editAction(idx);
-                item.ondblclick = () => removeAction(idx);
+                // Right-click context menu for edit/delete
+                item.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _eventMenuIdx = idx;
+                    const menu = document.getElementById('eventContextMenu');
+                    menu.style.left = e.clientX + 'px';
+                    menu.style.top = e.clientY + 'px';
+                    menu.classList.add('show');
+                    return false;
+                };
                 list.appendChild(item);
             });
         }
@@ -1418,6 +1437,22 @@
                 renderActions();
                 updateActionCount();
             }
+        }
+
+        // ─── Event right-click menu handlers ──────────────────
+        function editEventFromMenu() {
+            document.getElementById('eventContextMenu').classList.remove('show');
+            if (_eventMenuIdx >= 0 && _eventMenuIdx < currentActions.length) {
+                editAction(_eventMenuIdx);
+            }
+        }
+
+        function deleteEventFromMenu() {
+            document.getElementById('eventContextMenu').classList.remove('show');
+            if (_eventMenuIdx >= 0 && _eventMenuIdx < currentActions.length) {
+                removeAction(_eventMenuIdx);
+            }
+            _eventMenuIdx = -1;
         }
 
         function inspectElement() {
