@@ -534,7 +534,34 @@ class BrowserEngine:
                         # Human-like movement to target
                         _human_mouse_move(x, y)
                         time.sleep(random.uniform(0.05, 0.15))
+                        # Playwright click
                         page.mouse.click(x, y)
+                        time.sleep(random.uniform(0.03, 0.08))
+                        # Fallback: native JS click on the element at coordinates (handles SPAs)
+                        try:
+                            page.evaluate(f"""
+                                (() => {{
+                                    const el = document.elementFromPoint({x}, {y});
+                                    if (!el) return 'no element';
+                                    el.focus();
+                                    el.dispatchEvent(new MouseEvent('click', {{
+                                        bubbles: true, cancelable: true,
+                                        clientX: {x}, clientY: {y}, view: window
+                                    }}));
+                                    // If it's an anchor, try to navigate
+                                    if (el.tagName === 'A' && el.href) {{
+                                        el.click();
+                                    }}
+                                    // If it's a label, click its associated input
+                                    if (el.tagName === 'LABEL' && el.getAttribute('for')) {{
+                                        const input = document.getElementById(el.getAttribute('for'));
+                                        if (input) input.click();
+                                    }}
+                                    return 'clicked ' + el.tagName + (el.href ? ' ' + el.href : '');
+                                }})()
+                            """)
+                        except Exception:
+                            pass
                         _random_micro_pause()
                         result["success"] = True
 
@@ -677,6 +704,28 @@ class BrowserEngine:
 
                     elif cmd == "get_text":
                         result["text"] = page.inner_text("body")
+
+                    elif cmd == "click_js":
+                        page.evaluate(f"""
+                            const el = document.querySelector('{params["selector"]}');
+                            if (el) {{
+                                el.focus();
+                                el.dispatchEvent(new MouseEvent('click', {{bubbles:true,cancelable:true,view:window}}));
+                                if (el.tagName === 'A') el.click();
+                            }}
+                        """)
+                        result["success"] = True
+
+                    elif cmd == "click_js_at":
+                        page.evaluate(f"""
+                            const el = document.elementFromPoint({params['x']}, {params['y']});
+                            if (el) {{
+                                el.focus();
+                                el.dispatchEvent(new MouseEvent('click', {{bubbles:true,cancelable:true,view:window,clientX:{params['x']},clientY:{params['y']}}}));
+                                if (el.tagName === 'A' && el.href) el.click();
+                            }}
+                        """)
+                        result["success"] = True
 
                 except Exception as e:
                     result = {"status": "error", "error": str(e), "success": False}

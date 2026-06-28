@@ -86,13 +86,19 @@ class PlayerEngine:
                     x=action.x or 0, y=action.y or 0,
                     selector=action.selector
                 )
-                if not success and action.selector:
-                    # Retry with JS click
+                # Double-insurance: always try JS click as fallback for tough sites
+                if action.selector:
                     try:
-                        self.browser.page.evaluate(
-                            f"document.querySelector('{action.selector}')?.click()"
-                        )
-                        success = True
+                        # Query selector click for SPA/React pages
+                        self.browser._send_command("click_js", {"selector": action.selector})
+                    except Exception:
+                        pass
+                elif (action.x or action.y):
+                    try:
+                        # Coordinate-based JS click fallback
+                        self.browser._send_command("click_js_at", {
+                            "x": action.x, "y": action.y
+                        })
                     except Exception:
                         pass
 
