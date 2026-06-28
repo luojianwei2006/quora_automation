@@ -600,6 +600,8 @@
     <div class="context-menu" id="eventContextMenu">
         <div class="menu-title">Event Actions</div>
         <div class="menu-item" onclick="editEventFromMenu()"><span class="icon">✏️</span> Edit</div>
+        <div class="menu-item" onclick="runSingleEventFromMenu()"><span class="icon">▶️</span> Run Single</div>
+        <div class="menu-divider"></div>
         <div class="menu-item" onclick="deleteEventFromMenu()" style="color:#f44336;"><span class="icon">🗑️</span> Delete</div>
     </div>
 
@@ -1444,6 +1446,48 @@
             document.getElementById('eventContextMenu').classList.remove('show');
             if (_eventMenuIdx >= 0 && _eventMenuIdx < currentActions.length) {
                 editAction(_eventMenuIdx);
+            }
+        }
+
+        function runSingleEventFromMenu() {
+            document.getElementById('eventContextMenu').classList.remove('show');
+            if (_eventMenuIdx >= 0 && _eventMenuIdx < currentActions.length) {
+                runSingleEvent(_eventMenuIdx);
+            }
+        }
+
+        async function runSingleEvent(idx) {
+            const action = currentActions[idx];
+            if (!action) return;
+            document.getElementById('playbackStatus').textContent = `▶ Running step ${idx + 1}...`;
+            debug(`Running step ${idx + 1}: ${typeLabels[action.type] || action.type}`, 'info');
+            try {
+                const res = await fetch('/api/play/test-step', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(action)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const result = data.result;
+                    const status = result.success ? '✅ Passed' : '❌ Failed';
+                    document.getElementById('playbackStatus').textContent =
+                        `${status} step ${idx + 1}: ${typeLabels[action.type] || action.type}` +
+                        ` (${(result.duration_ms / 1000).toFixed(1)}s)` +
+                        (result.error ? ` - ${result.error}` : '');
+                    debug(`Step ${idx + 1}: ${status} (${(result.duration_ms / 1000).toFixed(1)}s)`, result.success ? 'ok' : 'error');
+                    if (result.screenshot) {
+                        document.getElementById('browserScreenshot').src = result.screenshot;
+                        document.getElementById('browserScreenshot').style.display = 'block';
+                        document.getElementById('browserPlaceholder').style.display = 'none';
+                    }
+                } else {
+                    document.getElementById('playbackStatus').textContent = '❌ Error: ' + (data.error || 'Unknown');
+                    debug(`Step ${idx + 1} error: ${data.error || 'Unknown'}`, 'error');
+                }
+            } catch(e) {
+                document.getElementById('playbackStatus').textContent = '❌ Error: ' + e.message;
+                debug(`Step ${idx + 1} error: ${e.message}`, 'error');
             }
         }
 
