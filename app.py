@@ -161,6 +161,19 @@ def api_browser_navigate():
             return jsonify({"status": "error", "error": str(e)}), 500
 
 
+@app.route("/api/browser/back", methods=["POST"])
+def api_browser_back():
+    with _browser_lock:
+        try:
+            browser = get_browser()
+            success = browser.execute_back()
+            info = browser.get_page_info()
+            screenshot = browser.get_screenshot()
+            return jsonify({"status": "ok", "success": success, "info": info, "screenshot": screenshot})
+        except Exception as e:
+            return jsonify({"status": "error", "error": str(e)}), 500
+
+
 @app.route("/api/browser/screenshot", methods=["GET"])
 def api_browser_screenshot():
     with _browser_lock:
