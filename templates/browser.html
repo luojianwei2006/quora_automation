@@ -748,6 +748,11 @@
 
                 if (data.status === 'ok') {
                     browserRunning = true;
+                    // Store browser viewport for coordinate scaling
+                    if (data.info && data.info.viewport) {
+                        window._browserViewport = data.info.viewport;
+                        debug('Viewport: ' + data.info.viewport.width + 'x' + data.info.viewport.height, 'info');
+                    }
                     document.getElementById('browserStatusDot').className = 'status-dot online';
                     document.getElementById('browserStatusText').textContent = 'Online';
                     document.getElementById('browserPlaceholder').style.display = 'none';
@@ -927,6 +932,11 @@
             var rect = phoneScreen.getBoundingClientRect();
             var x = e.clientX - rect.left;
             var y = e.clientY - rect.top;
+            // Scale to actual browser viewport (390x844 → displayed size)
+            if (window._browserViewport) {
+                x = x * (window._browserViewport.w / rect.width);
+                y = y * (window._browserViewport.h / rect.height);
+            }
             return { x: Math.round(x), y: Math.round(y) };
         }
 
@@ -968,7 +978,9 @@
             simCursor.classList.add('clicking');
             setTimeout(function() { simCursor.classList.remove('clicking'); }, 200);
 
-            debug('LEFT CLICK at (' + Math.round(pos.x) + ', ' + Math.round(pos.y) + ')', 'ok');
+            var scaleInfo = window._browserViewport ? 
+                ' (scaled→' + window._browserViewport.width + 'x' + window._browserViewport.height + ')' : '';
+            debug('CLICK raw=(' + Math.round(e.clientX - phoneScreen.getBoundingClientRect().left) + ',' + Math.round(e.clientY - phoneScreen.getBoundingClientRect().top) + ') → mapped=(' + pos.x + ',' + pos.y + ')' + scaleInfo, 'ok');
 
             fetch('/api/browser/click', {
                 method: 'POST',
