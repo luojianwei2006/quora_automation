@@ -934,8 +934,8 @@
             var y = e.clientY - rect.top;
             // Scale to actual browser viewport (390x844 → displayed size)
             if (window._browserViewport) {
-                x = x * (window._browserViewport.w / rect.width);
-                y = y * (window._browserViewport.h / rect.height);
+                x = x * (window._browserViewport.width / rect.width);
+                y = y * (window._browserViewport.height / rect.height);
             }
             return { x: Math.round(x), y: Math.round(y) };
         }
