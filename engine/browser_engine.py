@@ -515,30 +515,53 @@ class BrowserEngine:
                         # Human-like movement to target
                         _human_mouse_move(x, y)
                         time.sleep(random.uniform(0.03, 0.08))
-                        # Playwright click
+                        # Playwright mouse click
                         page.mouse.click(x, y)
+                        time.sleep(random.uniform(0.02, 0.03))
+                        # Mobile: also send touch event (critical for Baidu & mobile sites)
+                        try:
+                            page.touchscreen.tap(x, y)
+                        except Exception:
+                            pass
                         time.sleep(random.uniform(0.02, 0.05))
-                        # Fallback: native JS click on the element at coordinates (handles SPAs)
+                        # Fallback: native JS click + touch events on the element at coordinates
                         try:
                             page.evaluate(f"""
                                 (() => {{
                                     const el = document.elementFromPoint({x}, {y});
                                     if (!el) return 'no element';
-                                    el.focus();
-                                    el.dispatchEvent(new MouseEvent('click', {{
+
+                                    // Dispatch touch events for mobile sites
+                                    el.dispatchEvent(new TouchEvent('touchstart', {{
                                         bubbles: true, cancelable: true,
-                                        clientX: {x}, clientY: {y}, view: window
+                                        touches: [new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }})],
+                                        targetTouches: [new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }})],
+                                        changedTouches: [new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }})]
                                     }}));
-                                    // If it's an anchor, try to navigate
-                                    if (el.tagName === 'A' && el.href) {{
-                                        el.click();
-                                    }}
-                                    // If it's a label, click its associated input
+                                    el.dispatchEvent(new TouchEvent('touchend', {{
+                                        bubbles: true, cancelable: true,
+                                        touches: [],
+                                        targetTouches: [],
+                                        changedTouches: [new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }})]
+                                    }}));
+
+                                    // Dispatch mouse events
+                                    el.focus();
+                                    el.dispatchEvent(new MouseEvent('mousedown', {{bubbles:true,cancelable:true,view:window,clientX:{x},clientY:{y}}}));
+                                    el.dispatchEvent(new MouseEvent('mouseup', {{bubbles:true,cancelable:true,view:window,clientX:{x},clientY:{y}}}));
+                                    el.dispatchEvent(new MouseEvent('click', {{bubbles:true,cancelable:true,view:window,clientX:{x},clientY:{y}}}));
+
+                                    // Handle links and labels
+                                    if (el.tagName === 'A' && el.href) el.click();
                                     if (el.tagName === 'LABEL' && el.getAttribute('for')) {{
-                                        const input = document.getElementById(el.getAttribute('for'));
-                                        if (input) input.click();
+                                        const inp = document.getElementById(el.getAttribute('for'));
+                                        if (inp) inp.click();
                                     }}
-                                    return 'clicked ' + el.tagName + (el.href ? ' ' + el.href : '');
+                                    // Also try parent links (common in search results)
+                                    const parentA = el.closest('a');
+                                    if (parentA && parentA.href && parentA !== el) parentA.click();
+
+                                    return 'tapped ' + el.tagName + (el.href||parentA?.href ? ' link' : '');
                                 }})()
                             """)
                         except Exception:
@@ -702,8 +725,16 @@ class BrowserEngine:
                             const el = document.elementFromPoint({params['x']}, {params['y']});
                             if (el) {{
                                 el.focus();
+                                // Touch events for mobile
+                                const t = new Touch({{identifier:0, target:el, clientX:{params['x']}, clientY:{params['y']}}});
+                                el.dispatchEvent(new TouchEvent('touchstart', {{bubbles:true,cancelable:true,touches:[t],targetTouches:[t],changedTouches:[t]}}));
+                                el.dispatchEvent(new TouchEvent('touchend', {{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[t]}}));
+                                // Mouse events
+                                el.dispatchEvent(new MouseEvent('mousedown', {{bubbles:true,cancelable:true,view:window,clientX:{params['x']},clientY:{params['y']}}}));
+                                el.dispatchEvent(new MouseEvent('mouseup', {{bubbles:true,cancelable:true,view:window,clientX:{params['x']},clientY:{params['y']}}}));
                                 el.dispatchEvent(new MouseEvent('click', {{bubbles:true,cancelable:true,view:window,clientX:{params['x']},clientY:{params['y']}}}));
                                 if (el.tagName === 'A' && el.href) el.click();
+                                const pa = el.closest('a'); if (pa && pa.href) pa.click();
                             }}
                         """)
                         result["success"] = True
