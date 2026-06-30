@@ -51,7 +51,7 @@ class RecordedAction:
         self.scroll_delta_y: int = kwargs.get("scroll_delta_y", 300)
         self.url: Optional[str] = kwargs.get("url", "")
         self.description: str = kwargs.get("description", "")
-        self.delay_ms: int = kwargs.get("delay_ms", 500)       # delay BEFORE this action
+        self.delay_ms: int = kwargs.get("delay_ms", 100)       # delay BEFORE this action
         self.timeout_ms: int = kwargs.get("timeout_ms", 10000)  # max wait for completion
         self.completion_check_type: Optional[str] = kwargs.get("completion_check_type")
         self.completion_check_value: Optional[str] = kwargs.get("completion_check_value")

@@ -135,7 +135,7 @@ STEALTH_SCRIPT = """
 
 # ─── Human-like Behavior Helpers ─────────────────────────
 
-def _human_delay(min_ms: int = 50, max_ms: int = 300) -> float:
+def _human_delay(min_ms: int = 20, max_ms: int = 100) -> float:
     """Random delay between actions to mimic human reaction time."""
     return random.randint(min_ms, max_ms) / 1000.0
 
@@ -444,11 +444,10 @@ class BrowserEngine:
                 except Exception:
                     start_x, start_y = 200, 400
 
-                # Generate path
-                path = _generate_mouse_path(start_x, start_y, target_x, target_y, steps=25)
+                path = _generate_mouse_path(start_x, start_y, target_x, target_y, steps=10)
                 for px, py in path:
                     page.mouse.move(px, py)
-                    time.sleep(random.uniform(0.005, 0.015))
+                    time.sleep(random.uniform(0.002, 0.008))
 
                 # Save position for next movement
                 page.evaluate(f"window._lastMouseX = {target_x}; window._lastMouseY = {target_y};")
@@ -457,54 +456,37 @@ class BrowserEngine:
                 """Type text with variable delays between keystrokes."""
                 for char in text:
                     page.keyboard.type(char)
-                    # Variable typing speed: faster for common chars
                     if char in " etaoinsrh":
-                        time.sleep(random.uniform(0.03, 0.08))
+                        time.sleep(random.uniform(0.015, 0.04))
                     else:
-                        time.sleep(random.uniform(0.06, 0.15))
+                        time.sleep(random.uniform(0.03, 0.06))
 
             def _human_scroll(scroll_y: int):
                 """Scroll with easing, like a human."""
                 current = page.evaluate("window.scrollY")
                 target = current + scroll_y
-                steps = random.randint(8, 15)
+                steps = random.randint(5, 8)
                 for i in range(1, steps + 1):
                     t = i / steps
-                    # Ease-out cubic
-                    eased = 1 - (1 - t) ** 3
+                    eased = 1 - (1 - t) ** 2
                     pos = current + scroll_y * eased
                     page.evaluate(f"window.scrollTo(0, {int(pos)})")
-                    time.sleep(random.uniform(0.02, 0.06))
+                    time.sleep(random.uniform(0.01, 0.03))
 
             def _random_micro_pause():
                 """Tiny random pause like a human thinking."""
-                time.sleep(random.uniform(0.1, 0.5))
+                time.sleep(random.uniform(0.03, 0.12))
 
             def _simulate_human_presence():
-                """Occasionally do random micro-actions to simulate a real user."""
-                actions = random.randint(0, 2)
-                for _ in range(actions):
-                    r = random.random()
-                    if r < 0.3:
-                        # Tiny scroll wiggle
-                        page.evaluate(f"window.scrollBy(0, {random.randint(-5, 5)})")
-                    elif r < 0.6:
-                        # Move mouse a tiny bit
-                        try:
-                            js_x = page.evaluate("window._lastMouseX || 200")
-                            js_y = page.evaluate("window._lastMouseY || 400")
-                            page.mouse.move(
-                                js_x + random.randint(-10, 10),
-                                js_y + random.randint(-10, 10),
-                            )
-                        except Exception:
-                            pass
-                    time.sleep(random.uniform(0.05, 0.2))
+                """Occasionally do random micro-actions."""
+                if random.random() < 0.3:
+                    page.evaluate(f"window.scrollBy(0, {random.randint(-3, 3)})")
+                    time.sleep(random.uniform(0.02, 0.06))
 
             # ── Main command loop ──
             while self._running:
                 try:
-                    cmd, params = self._cmd_queue.get(timeout=0.5)
+                    cmd, params = self._cmd_queue.get(timeout=1.5)
                 except queue.Empty:
                     if page and not page.is_closed():
                         _update_cache()
@@ -517,8 +499,7 @@ class BrowserEngine:
                 try:
                     if cmd == "navigate":
                         page.goto(params["url"], wait_until="domcontentloaded", timeout=30000)
-                        # Wait a bit like a human looking at the page
-                        time.sleep(random.uniform(0.5, 1.5))
+                        time.sleep(random.uniform(0.15, 0.4))
                         _simulate_human_presence()
                         result["success"] = True
 
@@ -533,10 +514,10 @@ class BrowserEngine:
                                 y = box["y"] + box["height"] / 2
                         # Human-like movement to target
                         _human_mouse_move(x, y)
-                        time.sleep(random.uniform(0.05, 0.15))
+                        time.sleep(random.uniform(0.03, 0.08))
                         # Playwright click
                         page.mouse.click(x, y)
-                        time.sleep(random.uniform(0.03, 0.08))
+                        time.sleep(random.uniform(0.02, 0.05))
                         # Fallback: native JS click on the element at coordinates (handles SPAs)
                         try:
                             page.evaluate(f"""
