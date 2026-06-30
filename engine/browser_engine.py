@@ -524,44 +524,53 @@ class BrowserEngine:
                         except Exception:
                             pass
                         time.sleep(random.uniform(0.02, 0.05))
-                        # Fallback: native JS click + touch events on the element at coordinates
+                        # Fallback: aggressive JS click + touch for SPAs and Baidu-like sites
                         try:
                             page.evaluate(f"""
                                 (() => {{
-                                    const el = document.elementFromPoint({x}, {y});
+                                    let el = document.elementFromPoint({x}, {y});
                                     if (!el) return 'no element';
 
-                                    // Dispatch touch events for mobile sites
-                                    el.dispatchEvent(new TouchEvent('touchstart', {{
-                                        bubbles: true, cancelable: true,
-                                        touches: [new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }})],
-                                        targetTouches: [new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }})],
-                                        changedTouches: [new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }})]
-                                    }}));
-                                    el.dispatchEvent(new TouchEvent('touchend', {{
-                                        bubbles: true, cancelable: true,
-                                        touches: [],
-                                        targetTouches: [],
-                                        changedTouches: [new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }})]
-                                    }}));
+                                    // Find closest anchor (Baidu wraps results in nested divs)
+                                    const anchor = el.closest('a') || (el.tagName === 'A' ? el : null);
+                                    const href = anchor ? anchor.href : (el.href || '');
 
-                                    // Dispatch mouse events
+                                    // Build touch list
+                                    const touch = new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }});
+                                    const touchOpts = {{ bubbles: true, cancelable: true, touches: [touch], targetTouches: [touch], changedTouches: [touch] }};
+                                    const endOpts = {{ bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [touch] }};
+
+                                    // Touch sequence on the found element
+                                    el.dispatchEvent(new TouchEvent('touchstart', touchOpts));
+                                    el.dispatchEvent(new TouchEvent('touchend', endOpts));
+
+                                    // Mouse sequence on the found element
+                                    const mouseBase = {{ bubbles: true, cancelable: true, view: window, clientX: {x}, clientY: {y}, button: 0 }};
                                     el.focus();
-                                    el.dispatchEvent(new MouseEvent('mousedown', {{bubbles:true,cancelable:true,view:window,clientX:{x},clientY:{y}}}));
-                                    el.dispatchEvent(new MouseEvent('mouseup', {{bubbles:true,cancelable:true,view:window,clientX:{x},clientY:{y}}}));
-                                    el.dispatchEvent(new MouseEvent('click', {{bubbles:true,cancelable:true,view:window,clientX:{x},clientY:{y}}}));
+                                    el.dispatchEvent(new MouseEvent('mousedown', mouseBase));
+                                    el.dispatchEvent(new MouseEvent('mouseup', mouseBase));
+                                    el.dispatchEvent(new MouseEvent('click', mouseBase));
 
-                                    // Handle links and labels
-                                    if (el.tagName === 'A' && el.href) el.click();
-                                    if (el.tagName === 'LABEL' && el.getAttribute('for')) {{
-                                        const inp = document.getElementById(el.getAttribute('for'));
-                                        if (inp) inp.click();
+                                    // If anchor exists, dispatch directly on it too
+                                    if (anchor && anchor !== el) {{
+                                        anchor.focus();
+                                        anchor.dispatchEvent(new MouseEvent('mousedown', mouseBase));
+                                        anchor.dispatchEvent(new MouseEvent('mouseup', mouseBase));
+                                        anchor.dispatchEvent(new MouseEvent('click', mouseBase));
+                                        // Force navigation for stubborn sites
+                                        try {{ anchor.click(); }} catch(e) {{}}
+                                        // Last resort: direct navigation
+                                        if (anchor.href && !anchor.href.startsWith('javascript:')) {{
+                                            setTimeout(() => {{ window.location.href = anchor.href; }}, 50);
+                                        }}
                                     }}
-                                    // Also try parent links (common in search results)
-                                    const parentA = el.closest('a');
-                                    if (parentA && parentA.href && parentA !== el) parentA.click();
 
-                                    return 'tapped ' + el.tagName + (el.href||parentA?.href ? ' link' : '');
+                                    // If element itself is an anchor with href (not javascript:)
+                                    if (el.tagName === 'A' && el.href && !el.href.startsWith('javascript:') && !el.href.startsWith('#')) {{
+                                        setTimeout(() => {{ window.location.href = el.href; }}, 50);
+                                    }}
+
+                                    return 'tapped ' + (anchor ? anchor.tagName : el.tagName) + (href ? ' → ' + href.substring(0,60) : '');
                                 }})()
                             """)
                         except Exception:
@@ -722,19 +731,26 @@ class BrowserEngine:
 
                     elif cmd == "click_js_at":
                         page.evaluate(f"""
-                            const el = document.elementFromPoint({params['x']}, {params['y']});
+                            let el = document.elementFromPoint({params['x']}, {params['y']});
                             if (el) {{
-                                el.focus();
-                                // Touch events for mobile
+                                const anchor = el.closest('a') || (el.tagName === 'A' ? el : null);
                                 const t = new Touch({{identifier:0, target:el, clientX:{params['x']}, clientY:{params['y']}}});
                                 el.dispatchEvent(new TouchEvent('touchstart', {{bubbles:true,cancelable:true,touches:[t],targetTouches:[t],changedTouches:[t]}}));
                                 el.dispatchEvent(new TouchEvent('touchend', {{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[t]}}));
-                                // Mouse events
-                                el.dispatchEvent(new MouseEvent('mousedown', {{bubbles:true,cancelable:true,view:window,clientX:{params['x']},clientY:{params['y']}}}));
-                                el.dispatchEvent(new MouseEvent('mouseup', {{bubbles:true,cancelable:true,view:window,clientX:{params['x']},clientY:{params['y']}}}));
-                                el.dispatchEvent(new MouseEvent('click', {{bubbles:true,cancelable:true,view:window,clientX:{params['x']},clientY:{params['y']}}}));
-                                if (el.tagName === 'A' && el.href) el.click();
-                                const pa = el.closest('a'); if (pa && pa.href) pa.click();
+                                const m = {{bubbles:true,cancelable:true,view:window,clientX:{params['x']},clientY:{params['y']},button:0}};
+                                el.dispatchEvent(new MouseEvent('mousedown', m));
+                                el.dispatchEvent(new MouseEvent('mouseup', m));
+                                el.dispatchEvent(new MouseEvent('click', m));
+                                if (anchor && anchor !== el) {{
+                                    anchor.dispatchEvent(new MouseEvent('mousedown', m));
+                                    anchor.dispatchEvent(new MouseEvent('mouseup', m));
+                                    anchor.dispatchEvent(new MouseEvent('click', m));
+                                    try {{ anchor.click(); }} catch(e) {{}}
+                                    if (anchor.href && !anchor.href.startsWith('javascript:'))
+                                        setTimeout(() => window.location.href = anchor.href, 50);
+                                }}
+                                if (el.tagName === 'A' && el.href && !el.href.startsWith('javascript:') && !el.href.startsWith('#'))
+                                    setTimeout(() => window.location.href = el.href, 50);
                             }}
                         """)
                         result["success"] = True
