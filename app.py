@@ -3,6 +3,7 @@ Quora Automation System - Main Flask Application
 Web-based mobile browser simulator with recording/playback and management dashboard.
 """
 import os
+import sys
 import json
 import threading
 import time
@@ -188,19 +189,19 @@ def api_browser_screenshot():
 @app.route("/api/browser/click", methods=["POST"])
 def api_browser_click():
     data = request.get_json() or {}
+    x = data.get("x", 0)
+    y = data.get("y", 0)
+    print(f"[API] CLICK x={x} y={y}", file=sys.stderr, flush=True)
     with _browser_lock:
         try:
             browser = get_browser()
-            success = browser.execute_click(
-                x=data.get("x", 0), y=data.get("y", 0),
-                selector=data.get("selector", ""),
-            )
+            success = browser.execute_click(x=x, y=y, selector=data.get("selector", ""))
             screenshot = browser.get_screenshot()
+            print(f"[API] CLICK done success={success}", file=sys.stderr, flush=True)
             return jsonify({"status": "ok", "success": success, "screenshot": screenshot})
         except Exception as e:
-            return jsonify({"status": "error", "error": str(e)})
-
-
+            print(f"[API] CLICK error: {e}", file=sys.stderr, flush=True)
+            return jsonify({"status": "error", "error": str(e)}), 500
 @app.route("/api/browser/longpress", methods=["POST"])
 def api_browser_longpress():
     data = request.get_json() or {}

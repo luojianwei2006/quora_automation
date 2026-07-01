@@ -576,6 +576,7 @@ class BrowserEngine:
                         except Exception:
                             pass
                         _random_micro_pause()
+                        print(f"[BrowserEngine] CLICK at ({x},{y}) completed", file=sys.stderr, flush=True)
                         result["success"] = True
 
                     elif cmd == "longpress":
