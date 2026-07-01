@@ -230,6 +230,50 @@
             margin-top: 16px;
         }
 
+        /* Screenshot preview in action form */
+        .form-preview {
+            margin-bottom: 12px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #111;
+        }
+        .preview-crop {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .preview-crop img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .preview-crosshair {
+            position: absolute;
+            color: #ff0000;
+            font-size: 20px;
+            text-shadow: 0 0 4px #fff, 0 0 4px #fff;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            animation: pulse-cross 0.8s ease-in-out infinite alternate;
+        }
+        @keyframes pulse-cross {
+            from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            to { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
+        }
+        .preview-coords {
+            padding: 4px 8px;
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+            background: #1a1a1a;
+        }
+
         /* Toolbar */
         .browser-toolbar {
             display: flex;
@@ -610,6 +654,14 @@
     <div class="action-form" id="actionForm">
         <div class="action-form-content" id="actionFormContent">
             <h3 id="formTitle">Action Parameters</h3>
+            <!-- Screenshot preview of click area -->
+            <div class="form-preview" id="formPreview" style="display:none;">
+                <div class="preview-crop" id="previewCrop">
+                    <img id="previewImage" src="" alt="Click area">
+                    <div class="preview-crosshair" id="previewCrosshair">✚</div>
+                </div>
+                <div class="preview-coords" id="previewCoords"></div>
+            </div>
             <div id="formFields"></div>
             <div class="form-actions">
                 <button class="btn btn-secondary" onclick="closeForm()">Cancel</button>
@@ -1246,6 +1298,33 @@
 
             formContent.textContent = `Record ${typeLabels[type] || type}`;
             fields.innerHTML = html;
+
+            // Show click area preview (for position-based actions)
+            var showPreview = ['click','longpress','drag','input','paste','scroll'].indexOf(type) >= 0;
+            var preview = document.getElementById('formPreview');
+            if (showPreview && contextClickX > 0 && contextClickY > 0) {
+                var img = document.getElementById('browserScreenshot');
+                if (img && img.src && img.src !== window.location.href) {
+                    document.getElementById('previewImage').src = img.src;
+                    // Position crosshair at click location - scaled to preview size
+                    var pw = document.getElementById('previewCrop');
+                    // Calculate position relative to actual viewport
+                    var scaleX = pw.clientWidth / (window._browserViewport ? window._browserViewport.width : 412);
+                    var scaleY = 200 / (window._browserViewport ? window._browserViewport.height : 915);
+                    var cx = contextClickX * scaleX;
+                    var cy = contextClickY * scaleY;
+                    document.getElementById('previewCrosshair').style.left = cx + 'px';
+                    document.getElementById('previewCrosshair').style.top = cy + 'px';
+                    document.getElementById('previewCoords').textContent = 
+                        `📍 Click at (${contextClickX}, ${contextClickY})  —  Drag to adjust X/Y above`;
+                    preview.style.display = 'block';
+                } else {
+                    preview.style.display = 'none';
+                }
+            } else {
+                preview.style.display = 'none';
+            }
+
             form.classList.add('show');
         }
 
