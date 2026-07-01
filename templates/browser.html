@@ -978,23 +978,43 @@
             simCursor.classList.add('clicking');
             setTimeout(function() { simCursor.classList.remove('clicking'); }, 200);
 
-            var scaleInfo = window._browserViewport ? 
-                ' (scaled→' + window._browserViewport.width + 'x' + window._browserViewport.height + ')' : '';
-            debug('CLICK raw=(' + Math.round(e.clientX - phoneScreen.getBoundingClientRect().left) + ',' + Math.round(e.clientY - phoneScreen.getBoundingClientRect().top) + ') → mapped=(' + pos.x + ',' + pos.y + ')' + scaleInfo, 'ok');
+            // ── Visual debug marker on screen ──
+            var marker = document.createElement('div');
+            marker.className = 'click-marker';
+            marker.style.cssText = 'position:absolute;width:12px;height:12px;background:red;border-radius:50%;' +
+                'border:2px solid yellow;z-index:999;pointer-events:none;transform:translate(-50%,-50%);' +
+                'left:' + (e.clientX - phoneScreen.getBoundingClientRect().left) + 'px;' +
+                'top:' + (e.clientY - phoneScreen.getBoundingClientRect().top) + 'px;';
+            phoneScreen.appendChild(marker);
+            setTimeout(function() { marker.remove(); }, 1500);
+
+            debug('🔴 CLICK raw=(' + Math.round(e.clientX - phoneScreen.getBoundingClientRect().left) + ',' +
+                Math.round(e.clientY - phoneScreen.getBoundingClientRect().top) + ') → mapped=(' + pos.x + ',' + pos.y + ')', 'warn');
 
             fetch('/api/browser/click', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({x: Math.round(pos.x), y: Math.round(pos.y)})
             }).then(function(r) { return r.json(); }).then(function(data) {
+                // Show nav info
+                if (data.navigated_to) {
+                    debug('✅ NAVIGATED TO: ' + data.navigated_to, 'ok');
+                    document.getElementById('playbackStatus').textContent = '✅ Navigated to: ' + data.navigated_to;
+                } else if (data.href_found) {
+                    debug('⚠ HREF FOUND but no navigation: ' + data.href_found, 'warn');
+                    document.getElementById('playbackStatus').textContent = '⚠ Found link but no nav: ' + data.href_found;
+                } else {
+                    debug('❌ NO LINK at this position — click didn\'t land on <a>', 'error');
+                    document.getElementById('playbackStatus').textContent = '❌ No link element at this position';
+                }
+                // Update screenshot
                 if (data.screenshot) {
                     var img = document.getElementById('browserScreenshot');
                     img.src = data.screenshot;
                     img.style.display = 'block';
                     document.getElementById('browserPlaceholder').style.display = 'none';
-                    debug('Click executed, screenshot updated', 'ok');
                 }
-                if (!data.success) debug('Server click failed', 'error');
+                if (data.error) debug('Click error: ' + data.error, 'error');
             }).catch(function(err) {
                 debug('Click network error: ' + err.message, 'error');
             });

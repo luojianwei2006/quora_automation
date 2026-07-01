@@ -195,10 +195,17 @@ def api_browser_click():
     with _browser_lock:
         try:
             browser = get_browser()
-            success = browser.execute_click(x=x, y=y, selector=data.get("selector", ""))
+            # execute_click stores extra info inside browser's command results
+            result = browser._send_command("click", {"x": x, "y": y, "selector": data.get("selector", "")})
             screenshot = browser.get_screenshot()
-            print(f"[API] CLICK done success={success}", file=sys.stderr, flush=True)
-            return jsonify({"status": "ok", "success": success, "screenshot": screenshot})
+            resp = {"status": "ok", "success": result.get("success", False), "screenshot": screenshot}
+            if result.get("navigated_to"):
+                resp["navigated_to"] = result["navigated_to"]
+            if result.get("href_found"):
+                resp["href_found"] = result["href_found"]
+            if result.get("error"):
+                resp["error"] = result["error"]
+            return jsonify(resp)
         except Exception as e:
             print(f"[API] CLICK error: {e}", file=sys.stderr, flush=True)
             return jsonify({"status": "error", "error": str(e)}), 500

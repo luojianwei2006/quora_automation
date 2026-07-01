@@ -629,13 +629,20 @@ class BrowserEngine:
 
                         # If we found a real link, navigate directly from Python side
                         if nav_href and not nav_href.startswith('javascript:') and nav_href != 'about:blank':
+                            result["href_found"] = nav_href
                             time.sleep(random.uniform(0.15, 0.3))
                             try:
                                 page.goto(nav_href, wait_until="domcontentloaded", timeout=30000)
                                 result["navigated_to"] = nav_href[:80]
                                 print(f"[BrowserEngine] → navigated to {nav_href[:80]}", file=sys.stderr, flush=True)
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                result["error"] = f"goto failed: {e}"
+                                result["success"] = False
+                                print(f"[BrowserEngine] → goto failed: {e}", file=sys.stderr, flush=True)
+                        else:
+                            result["href_found"] = nav_href or ""
+                        _random_micro_pause()
+                        result["success"] = True
                         _random_micro_pause()
                         x, y = params["x"], params["y"]
                         _human_mouse_move(x, y)
