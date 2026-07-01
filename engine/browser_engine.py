@@ -581,84 +581,61 @@ class BrowserEngine:
                         _random_micro_pause()
                         x, y = params.get("x", 0), params.get("y", 0)
                         if params.get("selector"):
-                            # Get element position for human movement
                             box = page.locator(params["selector"]).bounding_box()
                             if box:
                                 x = box["x"] + box["width"] / 2
                                 y = box["y"] + box["height"] / 2
-                        # Human-like movement to target
                         _human_mouse_move(x, y)
                         time.sleep(random.uniform(0.03, 0.08))
-                        # Playwright mouse click
                         page.mouse.click(x, y)
-                        time.sleep(random.uniform(0.02, 0.03))
-                        # Mobile: also send touch event (critical for Baidu & mobile sites)
                         try:
                             page.touchscreen.tap(x, y)
                         except Exception:
                             pass
                         time.sleep(random.uniform(0.02, 0.05))
-                        # Fallback: aggressive JS click + touch for SPAs and Baidu-like sites
+
+                        # Dispatch JS events + find link href
+                        nav_href = ""
                         try:
-                            page.evaluate(f"""
+                            nav_href = page.evaluate(f"""
                                 (() => {{
                                     let el = document.elementFromPoint({x}, {y});
-                                    if (!el) return 'no element';
-
-                                    // Find closest anchor (Baidu wraps results in nested divs)
+                                    if (!el) return '';
                                     const anchor = el.closest('a') || (el.tagName === 'A' ? el : null);
-                                    const href = anchor ? anchor.href : (el.href || '');
 
-                                    // Build touch list
                                     const touch = new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }});
-                                    const touchOpts = {{ bubbles: true, cancelable: true, touches: [touch], targetTouches: [touch], changedTouches: [touch] }};
-                                    const endOpts = {{ bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [touch] }};
+                                    const tOpts = {{ bubbles:true, cancelable:true, touches:[touch], targetTouches:[touch], changedTouches:[touch] }};
+                                    el.dispatchEvent(new TouchEvent('touchstart', tOpts));
+                                    el.dispatchEvent(new TouchEvent('touchend', {{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[touch]}}));
 
-                                    // Touch sequence on the found element
-                                    el.dispatchEvent(new TouchEvent('touchstart', touchOpts));
-                                    el.dispatchEvent(new TouchEvent('touchend', endOpts));
+                                    const m = {{ bubbles:true, cancelable:true, view:window, clientX:{x}, clientY:{y}, button:0 }};
+                                    el.dispatchEvent(new MouseEvent('mousedown', m));
+                                    el.dispatchEvent(new MouseEvent('mouseup', m));
+                                    el.dispatchEvent(new MouseEvent('click', m));
 
-                                    // Mouse sequence on the found element
-                                    const mouseBase = {{ bubbles: true, cancelable: true, view: window, clientX: {x}, clientY: {y}, button: 0 }};
-                                    el.focus();
-                                    el.dispatchEvent(new MouseEvent('mousedown', mouseBase));
-                                    el.dispatchEvent(new MouseEvent('mouseup', mouseBase));
-                                    el.dispatchEvent(new MouseEvent('click', mouseBase));
-
-                                    // If anchor exists, dispatch directly on it too
                                     if (anchor && anchor !== el) {{
-                                        anchor.focus();
-                                        anchor.dispatchEvent(new MouseEvent('mousedown', mouseBase));
-                                        anchor.dispatchEvent(new MouseEvent('mouseup', mouseBase));
-                                        anchor.dispatchEvent(new MouseEvent('click', mouseBase));
-                                        // Force navigation for stubborn sites
+                                        anchor.dispatchEvent(new MouseEvent('mousedown', m));
+                                        anchor.dispatchEvent(new MouseEvent('mouseup', m));
+                                        anchor.dispatchEvent(new MouseEvent('click', m));
                                         try {{ anchor.click(); }} catch(e) {{}}
-                                        // Last resort: direct navigation
-                                        if (anchor.href && !anchor.href.startsWith('javascript:')) {{
-                                            setTimeout(() => {{ window.location.href = anchor.href; }}, 50);
-                                        }}
                                     }}
 
-                                    // If element itself is an anchor with href (not javascript:)
-                                    if (el.tagName === 'A' && el.href && !el.href.startsWith('javascript:') && !el.href.startsWith('#')) {{
-                                        setTimeout(() => {{ window.location.href = el.href; }}, 50);
-                                    }}
-
-                                    return 'tapped ' + (anchor ? anchor.tagName : el.tagName) + (href ? ' → ' + href.substring(0,60) : '');
+                                    return (anchor ? anchor.href : (el.href || ''));
                                 }})()
                             """)
+                            print(f"[BrowserEngine] CLICK @({x},{y}) href={nav_href[:80] if nav_href else 'none'}", file=sys.stderr, flush=True)
                         except Exception:
                             pass
-                        _random_micro_pause()
-                        # Diagnostic: check what element was clicked
-                        try:
-                            el_info = page.evaluate(f"(()=>{{let e=document.elementFromPoint({x},{y});if(!e)return'none';let a=e.closest('a');return e.tagName+(a&&a.href?'|A:'+a.href.substring(0,50):'|no_link');}})()")
-                            print(f"[BrowserEngine] CLICK @({x},{y}) → {el_info}", file=sys.stderr, flush=True)
-                        except Exception:
-                            pass
-                        result["success"] = True
 
-                    elif cmd == "longpress":
+                        # If we found a real link, navigate directly from Python side
+                        if nav_href and not nav_href.startswith('javascript:') and nav_href != 'about:blank':
+                            time.sleep(random.uniform(0.15, 0.3))
+                            try:
+                                page.goto(nav_href, wait_until="domcontentloaded", timeout=30000)
+                                result["navigated_to"] = nav_href[:80]
+                                print(f"[BrowserEngine] → navigated to {nav_href[:80]}", file=sys.stderr, flush=True)
+                            except Exception:
+                                pass
                         _random_micro_pause()
                         x, y = params["x"], params["y"]
                         _human_mouse_move(x, y)
