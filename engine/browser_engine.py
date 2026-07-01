@@ -33,10 +33,22 @@ IPHONE_14_PRO_MAX = {
     "has_touch": True,
 }
 
+# Chrome Android - better for Baidu (matches real mobile Chrome)
+CHROME_ANDROID = {
+    "user_agent": (
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro Build/UQ1A.231205.015) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.165 Mobile Safari/537.36"
+    ),
+    "viewport": {"width": 412, "height": 915},
+    "device_scale_factor": 2.6,
+    "is_mobile": True,
+    "has_touch": True,
+}
+
 GALAXY_S23 = {
     "user_agent": (
         "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36"
+        "(KHTML, like Gecko) Chrome/125.0.6422.165 Mobile Safari/537.36"
     ),
     "viewport": {"width": 412, "height": 915},
     "device_scale_factor": 3.5,
@@ -47,7 +59,11 @@ GALAXY_S23 = {
 MOBILE_PROFILES = {
     "iphone_14_pro_max": IPHONE_14_PRO_MAX,
     "galaxy_s23": GALAXY_S23,
+    "chrome_android": CHROME_ANDROID,
 }
+
+# Default to Chrome Android (best for Baidu and most sites)
+DEFAULT_PROFILE = "chrome_android"
 
 # ─── Stealth Script ──────────────────────────────────────
 # Injected into every page to hide automation traces.
@@ -129,6 +145,34 @@ STEALTH_SCRIPT = """
         get: () => 8
     });
 
+    // 11. Override platform for mobile
+    Object.defineProperty(navigator, 'platform', {
+        get: () => 'Linux armv8l'
+    });
+
+    // 12. Add connection info (mobile networks)
+    Object.defineProperty(navigator, 'connection', {
+        get: () => ({
+            effectiveType: '4g', rtt: 50, downlink: 10, saveData: false
+        })
+    });
+
+    // 13. Max touch points for mobile
+    Object.defineProperty(navigator, 'maxTouchPoints', {
+        get: () => 5
+    });
+
+    // 14. Override userAgentData
+    if (navigator.userAgentData) {
+        Object.defineProperty(navigator, 'userAgentData', {
+            get: () => ({
+                brands: [{brand: 'Google Chrome', version: '125'}, {brand: 'Chromium', version: '125'}, {brand: 'Not.A/Brand', version: '24'}],
+                mobile: true,
+                platform: 'Android'
+            })
+        });
+    }
+
 })();
 """
 
@@ -179,7 +223,8 @@ class BrowserEngine:
     commands are queued and results returned synchronously.
     """
 
-    def __init__(self, profile: str = "iphone_14_pro_max"):
+    def __init__(self, profile: str = None):
+        profile = profile or DEFAULT_PROFILE
         self._profile_name = profile
         self._profile = MOBILE_PROFILES.get(profile, IPHONE_14_PRO_MAX)
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -345,12 +390,18 @@ class BrowserEngine:
                 "--disable-sync",
                 "--disable-default-apps",
                 "--hide-scrollbars",
-                "--metrics-recording-only",
                 "--mute-audio",
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
-                "--disable-features=TranslateUI,BlinkGenPropertyTrees",
                 "--disable-ipc-flooding-protection",
+                "--enable-features=NetworkService,NetworkServiceInProcess",
+                "--disable-features=TranslateUI",
+                "--disable-component-extensions-with-background-pages",
+                "--disable-extensions",
+                "--disable-features=OptimizationHints,OptimizationHintsFetching",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-field-trial-config",
             ]
 
             browser = pw.chromium.launch(
