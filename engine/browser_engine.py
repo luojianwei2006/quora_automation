@@ -576,7 +576,12 @@ class BrowserEngine:
                         except Exception:
                             pass
                         _random_micro_pause()
-                        print(f"[BrowserEngine] CLICK at ({x},{y}) completed", file=sys.stderr, flush=True)
+                        # Diagnostic: check what element was clicked
+                        try:
+                            el_info = page.evaluate(f"(()=>{{let e=document.elementFromPoint({x},{y});if(!e)return'none';let a=e.closest('a');return e.tagName+(a&&a.href?'|A:'+a.href.substring(0,50):'|no_link');}})()")
+                            print(f"[BrowserEngine] CLICK @({x},{y}) → {el_info}", file=sys.stderr, flush=True)
+                        except Exception:
+                            pass
                         result["success"] = True
 
                     elif cmd == "longpress":
