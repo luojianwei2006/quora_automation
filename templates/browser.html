@@ -1304,20 +1304,24 @@
             var preview = document.getElementById('formPreview');
             if (showPreview && contextClickX > 0 && contextClickY > 0) {
                 var img = document.getElementById('browserScreenshot');
-                if (img && img.src && img.src !== window.location.href) {
+                if (img && img.src && img.src.startsWith('data:')) {
                     document.getElementById('previewImage').src = img.src;
-                    // Position crosshair at click location - scaled to preview size
-                    var pw = document.getElementById('previewCrop');
-                    // Calculate position relative to actual viewport
-                    var scaleX = pw.clientWidth / (window._browserViewport ? window._browserViewport.width : 412);
-                    var scaleY = 200 / (window._browserViewport ? window._browserViewport.height : 915);
-                    var cx = contextClickX * scaleX;
-                    var cy = contextClickY * scaleY;
-                    document.getElementById('previewCrosshair').style.left = cx + 'px';
-                    document.getElementById('previewCrosshair').style.top = cy + 'px';
                     document.getElementById('previewCoords').textContent = 
-                        `📍 Click at (${contextClickX}, ${contextClickY})  —  Drag to adjust X/Y above`;
+                        '📍 (' + contextClickX + ', ' + contextClickY + ')';
                     preview.style.display = 'block';
+                    // Delay crosshair positioning until preview is rendered
+                    setTimeout(function() {
+                        var crop = document.getElementById('previewCrop');
+                        var vw = window._browserViewport ? window._browserViewport.width : 412;
+                        var vh = window._browserViewport ? window._browserViewport.height : 915;
+                        var cw = crop.clientWidth;
+                        var ch = crop.clientHeight;
+                        if (cw > 0 && ch > 0) {
+                            var chEl = document.getElementById('previewCrosshair');
+                            chEl.style.left = (contextClickX / vw * cw) + 'px';
+                            chEl.style.top = (contextClickY / vh * ch) + 'px';
+                        }
+                    }, 100);
                 } else {
                     preview.style.display = 'none';
                 }
