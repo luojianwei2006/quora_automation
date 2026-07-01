@@ -18,6 +18,7 @@ from typing import Optional
 os.environ.pop("NODE_OPTIONS", None)
 
 from playwright.sync_api import sync_playwright
+from playwright_stealth import Stealth
 
 # ─── Mobile Device Profiles ──────────────────────────────
 
@@ -433,6 +434,28 @@ class BrowserEngine:
             context.add_init_script(STEALTH_SCRIPT)
 
             page = context.new_page()
+
+            # Apply playwright-stealth (professional anti-detection)
+            stealth_config = Stealth(
+                navigator_webdriver=True,
+                navigator_plugins=True,
+                navigator_languages=True,
+                navigator_vendor=True,
+                navigator_platform=True,
+                chrome_runtime=True,
+                chrome_app=True,
+                chrome_csi=True,
+                chrome_load_times=True,
+                iframe_content_window=True,
+                media_codecs=True,
+                sec_ch_ua=True,
+                webgl_vendor=True,
+                navigator_platform_override="Linux armv8l",
+                # Keep Chrome Android identity
+                navigator_vendor_override="Google Inc.",
+            )
+            stealth_config.apply_stealth_sync(page)
+            print("[BrowserEngine] playwright-stealth applied", file=sys.stderr, flush=True)
 
             # ── Randomize viewport slightly to avoid fingerprinting ──
             w, h = self._profile["viewport"]["width"], self._profile["viewport"]["height"]
