@@ -512,7 +512,7 @@
                 <div class="phone-notch"></div>
                 <div class="phone-screen" id="phoneScreen">
                     <div class="browser-frame" id="browserFrame">
-                        <img id="browserScreenshot" style="display:none;" alt="Browser view">
+                        <img id="browserScreenshot" style="display:none;width:100%;height:100%;object-fit:fill;" alt="Browser view">
                         <div class="browser-placeholder" id="browserPlaceholder" style="color:#888;font-size:14px;flex-direction:column;gap:10px;">
                             <div style="font-size:40px;">📱</div>
                             <div>Click "Start Browser" to begin</div>
@@ -932,10 +932,12 @@
             var rect = phoneScreen.getBoundingClientRect();
             var x = e.clientX - rect.left;
             var y = e.clientY - rect.top;
-            // Scale to actual browser viewport (390x844 → displayed size)
-            if (window._browserViewport) {
-                x = x * (window._browserViewport.width / rect.width);
-                y = y * (window._browserViewport.height / rect.height);
+            // Scale using actual screenshot image display size
+            var img = document.getElementById('browserScreenshot');
+            if (img && img.naturalWidth && window._browserViewport) {
+                var imgRect = img.getBoundingClientRect();
+                x = x * (window._browserViewport.width / imgRect.width);
+                y = y * (window._browserViewport.height / imgRect.height);
             }
             return { x: Math.round(x), y: Math.round(y) };
         }
