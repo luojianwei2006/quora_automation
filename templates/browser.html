@@ -695,6 +695,7 @@
         let isDraggingCursor = false;
         let dragOffsetX = 0, dragOffsetY = 0;
         let contextClickX = 0, contextClickY = 0;
+        let _rawClickX = 0, _rawClickY = 0;  // Unscaled phone-screen coords for preview
         let isRecordingMode = true;
         let dragStartX = 0, dragStartY = 0, isDraggingForRecord = false;
 
@@ -1087,10 +1088,15 @@
         // ── Right click ──
         phoneScreen.addEventListener('contextmenu', function(e) {
             e.preventDefault();
+            // Store RAW phone-screen coordinates for preview positioning
+            var ps = phoneScreen.getBoundingClientRect();
+            _rawClickX = Math.round(e.clientX - ps.left);
+            _rawClickY = Math.round(e.clientY - ps.top);
+            // Store scaled viewport coordinates for server
             var pos = getPos(e);
             contextClickX = Math.round(pos.x);
             contextClickY = Math.round(pos.y);
-            debug('RIGHT CLICK at (' + contextClickX + ', ' + contextClickY + ')', 'ok');
+            debug('RIGHT CLICK raw=(' + _rawClickX + ',' + _rawClickY + ') → vp=(' + contextClickX + ',' + contextClickY + ')', 'ok');
 
             // Get element info from server
             if (browserRunning) {
@@ -1319,19 +1325,17 @@
                     document.getElementById('previewCoords').textContent = 
                         '📍 (' + contextClickX + ', ' + contextClickY + ')';
                     preview.style.display = 'block';
-                    // Position crosshair after image renders
+                    // Position crosshair using RAW phone-screen coordinates → preview scale
                     setTimeout(function() {
                         var pimg = document.getElementById('previewImage');
-                        var crop = document.getElementById('previewCrop');
                         var chEl = document.getElementById('previewCrosshair');
-                        var vw = window._browserViewport ? window._browserViewport.width : 412;
-                        var vh = window._browserViewport ? window._browserViewport.height : 915;
-                        // Use image display dimensions for accurate mapping
+                        var ps = phoneScreen.getBoundingClientRect();
                         var iw = pimg.clientWidth;
                         var ih = pimg.clientHeight;
-                        if (iw > 0 && ih > 0) {
-                            chEl.style.left = (contextClickX / vw * iw) + 'px';
-                            chEl.style.top = (contextClickY / vh * ih) + 'px';
+                        if (iw > 0 && ih > 0 && ps.width > 0 && ps.height > 0) {
+                            // Raw pos → proportion of phone-screen → proportion of preview image
+                            chEl.style.left = (_rawClickX / ps.width * iw) + 'px';
+                            chEl.style.top = (_rawClickY / ps.height * ih) + 'px';
                             chEl.style.display = '';
                         }
                     }, 150);
