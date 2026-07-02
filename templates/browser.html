@@ -976,15 +976,17 @@
         simCursor.style.display = 'none';
 
         function getPos(e) {
-            var rect = phoneScreen.getBoundingClientRect();
-            var x = e.clientX - rect.left;
-            var y = e.clientY - rect.top;
-            // Scale using actual screenshot image display size
-            var img = document.getElementById('browserScreenshot');
-            if (img && img.naturalWidth && window._browserViewport) {
-                var imgRect = img.getBoundingClientRect();
-                x = x * (window._browserViewport.width / imgRect.width);
-                y = y * (window._browserViewport.height / imgRect.height);
+            var pr = phoneScreen.getBoundingClientRect();
+            var x = e.clientX - pr.left;
+            var y = e.clientY - pr.top;
+            // Scale from phone-screen pixels to browser viewport pixels
+            if (window._browserViewport) {
+                var img = document.getElementById('browserScreenshot');
+                // Use image display size if available, else phone-screen size
+                var dw = (img && img.clientWidth > 0) ? img.clientWidth : pr.width;
+                var dh = (img && img.clientHeight > 0) ? img.clientHeight : pr.height;
+                x = x * (window._browserViewport.width / dw);
+                y = y * (window._browserViewport.height / dh);
             }
             return { x: Math.round(x), y: Math.round(y) };
         }
