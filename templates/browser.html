@@ -236,21 +236,16 @@
             border: 1px solid #444;
             border-radius: 8px;
             overflow: hidden;
-            background: #111;
+            background: #000;
         }
         .preview-crop {
             position: relative;
             width: 100%;
-            height: 200px;
             overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         .preview-crop img {
             width: 100%;
-            height: 100%;
-            object-fit: contain;
+            display: block;
         }
         .preview-crosshair {
             position: absolute;
@@ -658,7 +653,7 @@
             <div class="form-preview" id="formPreview" style="display:none;">
                 <div class="preview-crop" id="previewCrop">
                     <img id="previewImage" src="" alt="Click area">
-                    <div class="preview-crosshair" id="previewCrosshair">✚</div>
+                    <div class="preview-crosshair" id="previewCrosshair" style="display:none;">✚</div>
                 </div>
                 <div class="preview-coords" id="previewCoords"></div>
             </div>
@@ -1309,19 +1304,22 @@
                     document.getElementById('previewCoords').textContent = 
                         '📍 (' + contextClickX + ', ' + contextClickY + ')';
                     preview.style.display = 'block';
-                    // Delay crosshair positioning until preview is rendered
+                    // Position crosshair after image renders
                     setTimeout(function() {
+                        var pimg = document.getElementById('previewImage');
                         var crop = document.getElementById('previewCrop');
+                        var chEl = document.getElementById('previewCrosshair');
                         var vw = window._browserViewport ? window._browserViewport.width : 412;
                         var vh = window._browserViewport ? window._browserViewport.height : 915;
-                        var cw = crop.clientWidth;
-                        var ch = crop.clientHeight;
-                        if (cw > 0 && ch > 0) {
-                            var chEl = document.getElementById('previewCrosshair');
-                            chEl.style.left = (contextClickX / vw * cw) + 'px';
-                            chEl.style.top = (contextClickY / vh * ch) + 'px';
+                        // Use image display dimensions for accurate mapping
+                        var iw = pimg.clientWidth;
+                        var ih = pimg.clientHeight;
+                        if (iw > 0 && ih > 0) {
+                            chEl.style.left = (contextClickX / vw * iw) + 'px';
+                            chEl.style.top = (contextClickY / vh * ih) + 'px';
+                            chEl.style.display = '';
                         }
-                    }, 100);
+                    }, 150);
                 } else {
                     preview.style.display = 'none';
                 }
