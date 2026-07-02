@@ -587,7 +587,7 @@ class BrowserEngine:
                             pass
                         time.sleep(random.uniform(0.02, 0.05))
 
-                        # Dispatch JS events + find link href
+                        # Dispatch JS events + find link href (handle javascript:void(0) links)
                         nav_href = ""
                         try:
                             nav_href = page.evaluate(f"""
@@ -610,18 +610,44 @@ class BrowserEngine:
                                         anchor.dispatchEvent(new MouseEvent('mousedown', m));
                                         anchor.dispatchEvent(new MouseEvent('mouseup', m));
                                         anchor.dispatchEvent(new MouseEvent('click', m));
+                                    }}
+
+                                    // Force trigger onclick handlers for javascript:void(0) links
+                                    let href = anchor ? anchor.href : (el.href || '');
+                                    if (href && href.startsWith('javascript:')) {{
+                                        // Try to extract real URL from data attributes (Baidu pattern)
+                                        const realUrl = anchor.getAttribute('data-url') ||
+                                            anchor.getAttribute('mu') ||
+                                            anchor.getAttribute('href-redirect') ||
+                                            anchor.getAttribute('data-href');
+                                        if (realUrl) {{
+                                            href = realUrl;
+                                        }} else {{
+                                            // Try reading onclick for URL pattern
+                                            const oc = anchor.getAttribute('onclick') || '';
+                                            const urlMatch = oc.match(/(?:location|href|open)\\s*[=\\(]\\s*['"]([^'"]+)['"]/);
+                                            if (urlMatch) href = urlMatch[1];
+                                        }}
+                                    }}
+
+                                    // Force execute the onclick handler if it exists
+                                    if (anchor && anchor.onclick) {{
+                                        try {{ anchor.onclick({{preventDefault:()=>{{}},stopPropagation:()=>{{}},clientX:{x},clientY:{y}}}); }} catch(e) {{}}
+                                    }}
+                                    if (anchor) {{
                                         try {{ anchor.click(); }} catch(e) {{}}
                                     }}
 
-                                    return (anchor ? anchor.href : (el.href || ''));
+                                    return href || '';
                                 }})()
                             """)
-                            print(f"[BrowserEngine] CLICK @({x},{y}) href={nav_href[:80] if nav_href else 'none'}", file=sys.stderr, flush=True)
+                            print(f"[BrowserEngine] CLICK @({x},{y}) href={nav_href[:100] if nav_href else 'none'}", file=sys.stderr, flush=True)
                         except Exception:
                             pass
 
-                        # If we found a real link, navigate directly from Python side
-                        if nav_href and not nav_href.startswith('javascript:') and nav_href != 'about:blank':
+                        # Navigate if we got a real URL
+                        is_js = nav_href.startswith('javascript:') if nav_href else False
+                        if nav_href and not is_js and nav_href != 'about:blank' and nav_href.startswith('http'):
                             result["href_found"] = nav_href
                             time.sleep(random.uniform(0.15, 0.3))
                             try:
@@ -632,6 +658,15 @@ class BrowserEngine:
                                 result["error"] = f"goto failed: {e}"
                                 result["success"] = False
                                 print(f"[BrowserEngine] → goto failed: {e}", file=sys.stderr, flush=True)
+                        elif is_js:
+                            # javascript:void(0) link — rely on JS event handlers already fired
+                            result["href_found"] = nav_href + " (JS handler)"
+                            # Wait to see if JS navigation happened
+                            time.sleep(random.uniform(0.5, 1.0))
+                            new_url = page.url
+                            print(f"[BrowserEngine] JS-only link, page now: {new_url[:80]}", file=sys.stderr, flush=True)
+                            if new_url != self._cached_info.get("url", ""):
+                                result["navigated_to"] = new_url[:80]
                         else:
                             result["href_found"] = nav_href or ""
                         _random_micro_pause()
