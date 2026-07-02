@@ -18,12 +18,21 @@ from flask import (
 from flask_socketio import SocketIO, emit
 
 from engine.browser_engine import BrowserEngine
-# Real browser engine requires xdotool (Linux only)
+# Alternative engines
 _has_real_browser = False
+_has_mac_browser = False
 try:
-    from engine.real_browser_engine import RealBrowserEngine
     import shutil
-    _has_real_browser = shutil.which("xdotool") is not None
+    if shutil.which("xdotool"):
+        from engine.real_browser_engine import RealBrowserEngine
+        _has_real_browser = True
+except Exception:
+    pass
+try:
+    import sys as _sys
+    if _sys.platform == "darwin":
+        from engine.mac_browser_engine import MacBrowserEngine
+        _has_mac_browser = True
 except Exception:
     pass
 from engine.models import Recording, RecordedAction, ActionType
@@ -49,7 +58,9 @@ _use_real_browser = False  # Toggle for real (xdotool) browser mode
 def get_browser():
     global _browser, _use_real_browser
     if _browser is None:
-        if _use_real_browser and _has_real_browser:
+        if _use_real_browser and _has_mac_browser:
+            _browser = MacBrowserEngine()
+        elif _use_real_browser and _has_real_browser:
             _browser = RealBrowserEngine()
         else:
             _browser = BrowserEngine()
@@ -126,11 +137,11 @@ def api_browser_mode():
     if request.method == "POST":
         data = request.get_json() or {}
         mode = data.get("mode", "playwright")
-        if mode == "real" and not _has_real_browser:
-            return jsonify({"status": "error", "error": "Real Mouse requires xdotool (Linux only). Use Playwright mode."}), 400
+        if mode == "real" and not (_has_real_browser or _has_mac_browser):
+            return jsonify({"status": "error", "error": "Real Mouse requires xdotool (Linux) or macOS with pyautogui."}), 400
         _use_real_browser = (mode == "real")
-        # Start desktop if switching to real browser
-        if _use_real_browser:
+        # Start desktop if switching to real browser (Linux only)
+        if _use_real_browser and _has_real_browser:
             import subprocess
             result = subprocess.run(
                 ["bash", "/root/.codebuddy/skills/computer-use/scripts/start_desktop.sh"],
