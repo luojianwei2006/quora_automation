@@ -792,15 +792,21 @@
                 await fetch('/api/browser/stop', { method: 'POST' });
                 browserRunning = false;
             }
-            await fetch('/api/browser/mode', {
+            var res = await fetch('/api/browser/mode', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({mode: mode})
             });
-            debug('Switched to ' + mode + ' engine. Click Start Browser.', 'warn');
+            var data = await res.json();
+            if (data.status === 'error') {
+                alert(data.error);
+                document.getElementById('engineMode').value = 'playwright';
+                return;
+            }
+            debug('Switched to ' + mode, 'warn');
             document.getElementById('browserStatusDot').className = 'status-dot offline';
             document.getElementById('browserStatusText').textContent = 'Offline';
-            showStatus('Engine: ' + mode + '. Click Start.', 'info');
+            showStatus('Ready: ' + mode, 'info');
         }
 
         // ─── Browser Control ───────────────────────────────────────
