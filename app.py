@@ -18,6 +18,7 @@ from flask import (
 from flask_socketio import SocketIO, emit
 
 from engine.browser_engine import BrowserEngine
+from engine.real_browser_engine import RealBrowserEngine
 from engine.models import Recording, RecordedAction, ActionType
 from engine.player import PlayerEngine
 from engine import storage
@@ -35,12 +36,16 @@ _player: PlayerEngine = None
 _browser_lock = threading.Lock()
 _current_recording: Recording = None
 _play_thread: threading.Thread = None
+_use_real_browser = False  # Toggle for real (xdotool) browser mode
 
 
-def get_browser() -> BrowserEngine:
-    global _browser
+def get_browser():
+    global _browser, _use_real_browser
     if _browser is None:
-        _browser = BrowserEngine()
+        if _use_real_browser:
+            _browser = RealBrowserEngine()
+        else:
+            _browser = BrowserEngine()
     return _browser
 
 
@@ -108,6 +113,32 @@ def recording_view():
 
 # ─── Browser API ─────────────────────────────────────────────────
 
+@app.route("/api/browser/mode", methods=["POST", "GET"])
+def api_browser_mode():
+    global _browser, _use_real_browser
+    if request.method == "POST":
+        data = request.get_json() or {}
+        mode = data.get("mode", "playwright")
+        _use_real_browser = (mode == "real")
+        # Start desktop if switching to real browser
+        if _use_real_browser:
+            import subprocess
+            result = subprocess.run(
+                ["bash", "/root/.codebuddy/skills/computer-use/scripts/start_desktop.sh"],
+                capture_output=True, text=True, timeout=30
+            )
+            print(f"[Desktop] start: {result.stdout[-200:] if result.stdout else 'done'}", file=sys.stderr, flush=True)
+        # Reset existing browser
+        if _browser and _browser.is_running:
+            try:
+                _browser.close()
+            except Exception:
+                pass
+        _browser = None
+        return jsonify({"status": "ok", "mode": mode, "real": _use_real_browser})
+    return jsonify({"mode": "real" if _use_real_browser else "playwright", "real": _use_real_browser})
+
+
 @app.route("/api/browser/start", methods=["POST"])
 def api_browser_start():
     with _browser_lock:
@@ -117,7 +148,7 @@ def api_browser_start():
             info = browser.get_page_info()
             if not info.get("ready"):
                 return jsonify({"status": "error", "error": info.get("error", "Browser failed to start"), "debug": info}), 500
-            return jsonify({"status": "ok", "info": info})
+            return jsonify({"status": "ok", "info": info, "real": _use_real_browser})
         except Exception as e:
             import traceback
             return jsonify({"status": "error", "error": str(e), "debug": traceback.format_exc()}), 500

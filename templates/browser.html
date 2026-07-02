@@ -524,6 +524,10 @@
             <a href="/tasks">{{ t('nav.tasks') }}</a>
         </div>
         <div class="nav-status">
+            <select id="engineMode" onchange="switchEngine()" style="background:#1a1a2e;color:#aaa;border:1px solid #444;border-radius:4px;padding:2px 6px;font-size:11px;margin-right:8px;">
+                <option value="playwright">🧪 Playwright</option>
+                <option value="real">🖥️ Real Mouse</option>
+            </select>
             <span class="status-dot offline" id="browserStatusDot"></span>
             <span id="browserStatusText">{{ t('nav.status.offline') }}</span>
         </div>
@@ -778,6 +782,25 @@
                     type === 'ok' ? '#4CAF50' :
                     type === 'warn' ? '#FF9800' : '#aaa';
             }
+        }
+
+        // ─── Engine Mode Switcher ─────────────────────────────
+        async function switchEngine() {
+            var mode = document.getElementById('engineMode').value;
+            // Stop existing browser first
+            if (browserRunning) {
+                await fetch('/api/browser/stop', { method: 'POST' });
+                browserRunning = false;
+            }
+            await fetch('/api/browser/mode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({mode: mode})
+            });
+            debug('Switched to ' + mode + ' engine. Click Start Browser.', 'warn');
+            document.getElementById('browserStatusDot').className = 'status-dot offline';
+            document.getElementById('browserStatusText').textContent = 'Offline';
+            showStatus('Engine: ' + mode + '. Click Start.', 'info');
         }
 
         // ─── Browser Control ───────────────────────────────────────
