@@ -578,9 +578,17 @@ class BrowserEngine:
                             if box:
                                 x = box["x"] + box["width"] / 2
                                 y = box["y"] + box["height"] / 2
+                        # ── Realistic mouse click sequence ──
                         _human_mouse_move(x, y)
-                        time.sleep(random.uniform(0.03, 0.08))
-                        page.mouse.click(x, y)
+                        time.sleep(random.uniform(0.02, 0.05))
+                        # Mouse down
+                        page.mouse.move(x, y)
+                        time.sleep(random.uniform(0.01, 0.03))
+                        page.mouse.down()
+                        time.sleep(random.uniform(0.04, 0.08))  # human press duration
+                        page.mouse.up()
+                        time.sleep(random.uniform(0.01, 0.03))
+                        # Touch tap for mobile
                         try:
                             page.touchscreen.tap(x, y)
                         except Exception:
@@ -595,50 +603,43 @@ class BrowserEngine:
                                     let el = document.elementFromPoint({x}, {y});
                                     if (!el) return '';
                                     const anchor = el.closest('a') || (el.tagName === 'A' ? el : null);
+                                    const target = anchor || el;
 
-                                    const touch = new Touch({{ identifier: 0, target: el, clientX: {x}, clientY: {y} }});
-                                    const tOpts = {{ bubbles:true, cancelable:true, touches:[touch], targetTouches:[touch], changedTouches:[touch] }};
-                                    el.dispatchEvent(new TouchEvent('touchstart', tOpts));
-                                    el.dispatchEvent(new TouchEvent('touchend', {{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[touch]}}));
+                                    // Pointer events (lower level, harder to detect)
+                                    const peBase = {{ bubbles:true, cancelable:true, view:window, clientX:{x}, clientY:{y}, pointerId:1, pointerType:'touch', isPrimary:true, width:10, height:10, pressure:0.5 }};
+                                    target.dispatchEvent(new PointerEvent('pointerdown', peBase));
+                                    target.dispatchEvent(new PointerEvent('pointerup', peBase));
+                                    target.dispatchEvent(new PointerEvent('pointerover', peBase));
+                                    target.dispatchEvent(new PointerEvent('pointerenter', peBase));
 
-                                    const m = {{ bubbles:true, cancelable:true, view:window, clientX:{x}, clientY:{y}, button:0 }};
-                                    el.dispatchEvent(new MouseEvent('mousedown', m));
-                                    el.dispatchEvent(new MouseEvent('mouseup', m));
-                                    el.dispatchEvent(new MouseEvent('click', m));
+                                    // Touch events
+                                    const touch = new Touch({{ identifier: 0, target: target, clientX:{x}, clientY:{y} }});
+                                    target.dispatchEvent(new TouchEvent('touchstart', {{bubbles:true,cancelable:true,touches:[touch],targetTouches:[touch],changedTouches:[touch]}}));
+                                    target.dispatchEvent(new TouchEvent('touchend', {{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[touch]}}));
 
-                                    if (anchor && anchor !== el) {{
-                                        anchor.dispatchEvent(new MouseEvent('mousedown', m));
-                                        anchor.dispatchEvent(new MouseEvent('mouseup', m));
-                                        anchor.dispatchEvent(new MouseEvent('click', m));
-                                    }}
+                                    // Full mouse sequence on the actual anchor element
+                                    const m = {{ bubbles:true, cancelable:false, view:window, clientX:{x}, clientY:{y}, button:0, buttons:1, detail:1 }};
+                                    target.dispatchEvent(new MouseEvent('mousedown', m));
+                                    target.dispatchEvent(new MouseEvent('mouseup', m));
+                                    target.dispatchEvent(new MouseEvent('click', m));
 
-                                    // Force trigger onclick handlers for javascript:void(0) links
-                                    let href = anchor ? anchor.href : (el.href || '');
-                                    if (href && href.startsWith('javascript:')) {{
-                                        // Try to extract real URL from data attributes (Baidu pattern)
-                                        const realUrl = anchor.getAttribute('data-url') ||
-                                            anchor.getAttribute('mu') ||
-                                            anchor.getAttribute('href-redirect') ||
-                                            anchor.getAttribute('data-href');
-                                        if (realUrl) {{
-                                            href = realUrl;
-                                        }} else {{
-                                            // Try reading onclick for URL pattern
-                                            const oc = anchor.getAttribute('onclick') || '';
-                                            const urlMatch = oc.match(/(?:location|href|open)\\s*[=\\(]\\s*['"]([^'"]+)['"]/);
-                                            if (urlMatch) href = urlMatch[1];
+                                    // Force native click (most reliable for javascript:void(0) links)
+                                    try {{ target.click(); }} catch(e) {{}}
+                                    // Also try HTMLElement.prototype.click for stubborn handlers
+                                    try {{ HTMLElement.prototype.click.call(target); }} catch(e) {{}}
+
+                                    // For javascript:void(0): extract real URL from onclick/data-*
+                                    let href = target.href || '';
+                                    if (href.startsWith('javascript:')) {{
+                                        href = target.getAttribute('data-url') || target.getAttribute('mu') ||
+                                            target.getAttribute('data-href') || target.getAttribute('href-redirect') || '';
+                                        if (!href) {{
+                                            const oc = (target.getAttribute('onclick') || '').replace(/\\\\n/g,'');
+                                            const m = oc.match(/['"](https?:\\/\\/[^'"]+)['"]/) || oc.match(/['"](\\/[^'"]+)['"]/);
+                                            if (m) href = m[1];
                                         }}
                                     }}
-
-                                    // Force execute the onclick handler if it exists
-                                    if (anchor && anchor.onclick) {{
-                                        try {{ anchor.onclick({{preventDefault:()=>{{}},stopPropagation:()=>{{}},clientX:{x},clientY:{y}}}); }} catch(e) {{}}
-                                    }}
-                                    if (anchor) {{
-                                        try {{ anchor.click(); }} catch(e) {{}}
-                                    }}
-
-                                    return href || '';
+                                    return href || target.href || '';
                                 }})()
                             """)
                             print(f"[BrowserEngine] CLICK @({x},{y}) href={nav_href[:100] if nav_href else 'none'}", file=sys.stderr, flush=True)
