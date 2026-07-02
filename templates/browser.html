@@ -796,11 +796,6 @@
 
                 if (data.status === 'ok') {
                     browserRunning = true;
-                    // Store browser viewport for coordinate scaling
-                    if (data.info && data.info.viewport) {
-                        window._browserViewport = data.info.viewport;
-                        debug('Viewport: ' + data.info.viewport.width + 'x' + data.info.viewport.height, 'info');
-                    }
                     document.getElementById('browserStatusDot').className = 'status-dot online';
                     document.getElementById('browserStatusText').textContent = 'Online';
                     document.getElementById('browserPlaceholder').style.display = 'none';
@@ -978,18 +973,7 @@
 
         function getPos(e) {
             var pr = phoneScreen.getBoundingClientRect();
-            var x = e.clientX - pr.left;
-            var y = e.clientY - pr.top;
-            // Scale from phone-screen pixels to browser viewport pixels
-            if (window._browserViewport) {
-                var img = document.getElementById('browserScreenshot');
-                // Use image display size if available, else phone-screen size
-                var dw = (img && img.clientWidth > 0) ? img.clientWidth : pr.width;
-                var dh = (img && img.clientHeight > 0) ? img.clientHeight : pr.height;
-                x = x * (window._browserViewport.width / dw);
-                y = y * (window._browserViewport.height / dh);
-            }
-            return { x: Math.round(x), y: Math.round(y) };
+            return { x: Math.round(e.clientX - pr.left), y: Math.round(e.clientY - pr.top) };
         }
 
         function updateCursor(x, y) {
@@ -1027,18 +1011,7 @@
             if (isDraggingForRecord) return;
 
             var pos = getPos(e);
-            // Build scale debug info
-            var scaleInfo = '';
-            var img = document.getElementById('browserScreenshot');
-            if (img && window._browserViewport) {
-                var ir = img.getBoundingClientRect();
-                scaleInfo = ' img=' + Math.round(ir.width) + 'x' + Math.round(ir.height) +
-                    ' vp=' + window._browserViewport.width + 'x' + window._browserViewport.height +
-                    ' scale=' + (window._browserViewport.width / ir.width).toFixed(3) + 'x' + (window._browserViewport.height / ir.height).toFixed(3);
-            }
-            var rawX = Math.round(e.clientX - phoneScreen.getBoundingClientRect().left);
-            var rawY = Math.round(e.clientY - phoneScreen.getBoundingClientRect().top);
-            debug('🔴 raw=(' + rawX + ',' + rawY + ') → mapped=(' + pos.x + ',' + pos.y + ') ' + scaleInfo, 'warn');
+            debug('🔴 CLICK (' + pos.x + ', ' + pos.y + ')', 'warn');
 
             simCursor.classList.add('clicking');
             setTimeout(function() { simCursor.classList.remove('clicking'); }, 200);
@@ -1088,15 +1061,12 @@
         // ── Right click ──
         phoneScreen.addEventListener('contextmenu', function(e) {
             e.preventDefault();
-            // Store RAW phone-screen coordinates for preview positioning
-            var ps = phoneScreen.getBoundingClientRect();
-            _rawClickX = Math.round(e.clientX - ps.left);
-            _rawClickY = Math.round(e.clientY - ps.top);
-            // Store scaled viewport coordinates for server
             var pos = getPos(e);
-            contextClickX = Math.round(pos.x);
-            contextClickY = Math.round(pos.y);
-            debug('RIGHT CLICK raw=(' + _rawClickX + ',' + _rawClickY + ') → vp=(' + contextClickX + ',' + contextClickY + ')', 'ok');
+            contextClickX = pos.x;
+            contextClickY = pos.y;
+            _rawClickX = pos.x;  // same as contextClickX since viewport=phoneScreen
+            _rawClickY = pos.y;
+            debug('RIGHT CLICK (' + contextClickX + ', ' + contextClickY + ')', 'ok');
 
             // Get element info from server
             if (browserRunning) {
@@ -1332,13 +1302,12 @@
                         var ps = phoneScreen.getBoundingClientRect();
                         var iw = pimg.clientWidth;
                         var ih = pimg.clientHeight;
-                        if (iw > 0 && ih > 0 && ps.width > 0 && ps.height > 0) {
-                            // Raw pos → proportion of phone-screen → proportion of preview image
-                            chEl.style.left = (_rawClickX / ps.width * iw) + 'px';
-                            chEl.style.top = (_rawClickY / ps.height * ih) + 'px';
+                        if (iw > 0 && ih > 0) {
+                            chEl.style.left = (contextClickX / ps.width * iw) + 'px';
+                            chEl.style.top = (contextClickY / ps.height * ih) + 'px';
                             chEl.style.display = '';
                         }
-                    }, 150);
+                    }, 100);
                 } else {
                     preview.style.display = 'none';
                 }

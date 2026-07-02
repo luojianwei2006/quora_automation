@@ -28,8 +28,8 @@ IPHONE_14_PRO_MAX = {
         "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 "
         "Mobile/15E148 Safari/604.1"
     ),
-    "viewport": {"width": 390, "height": 844},
-    "device_scale_factor": 3,
+    "viewport": {"width": 369, "height": 828},
+    "device_scale_factor": 2,
     "is_mobile": True,
     "has_touch": True,
 }
@@ -40,8 +40,8 @@ CHROME_ANDROID = {
         "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro Build/UQ1A.231205.015) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.165 Mobile Safari/537.36"
     ),
-    "viewport": {"width": 412, "height": 915},
-    "device_scale_factor": 2.6,
+    "viewport": {"width": 369, "height": 828},
+    "device_scale_factor": 2,
     "is_mobile": True,
     "has_touch": True,
 }
@@ -51,8 +51,8 @@ GALAXY_S23 = {
         "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/125.0.6422.165 Mobile Safari/537.36"
     ),
-    "viewport": {"width": 412, "height": 915},
-    "device_scale_factor": 3.5,
+    "viewport": {"width": 369, "height": 828},
+    "device_scale_factor": 2,
     "is_mobile": True,
     "has_touch": True,
 }
@@ -456,13 +456,6 @@ class BrowserEngine:
             )
             stealth_config.apply_stealth_sync(page)
             print("[BrowserEngine] playwright-stealth applied", file=sys.stderr, flush=True)
-
-            # ── Randomize viewport slightly to avoid fingerprinting ──
-            w, h = self._profile["viewport"]["width"], self._profile["viewport"]["height"]
-            page.set_viewport_size({
-                "width": w + random.randint(-2, 2),
-                "height": h + random.randint(-2, 2),
-            })
 
             self._cached_info = {
                 "ready": True,
