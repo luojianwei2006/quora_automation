@@ -1024,6 +1024,19 @@
             if (isDraggingForRecord) return;
 
             var pos = getPos(e);
+            // Build scale debug info
+            var scaleInfo = '';
+            var img = document.getElementById('browserScreenshot');
+            if (img && window._browserViewport) {
+                var ir = img.getBoundingClientRect();
+                scaleInfo = ' img=' + Math.round(ir.width) + 'x' + Math.round(ir.height) +
+                    ' vp=' + window._browserViewport.width + 'x' + window._browserViewport.height +
+                    ' scale=' + (window._browserViewport.width / ir.width).toFixed(3) + 'x' + (window._browserViewport.height / ir.height).toFixed(3);
+            }
+            var rawX = Math.round(e.clientX - phoneScreen.getBoundingClientRect().left);
+            var rawY = Math.round(e.clientY - phoneScreen.getBoundingClientRect().top);
+            debug('🔴 raw=(' + rawX + ',' + rawY + ') → mapped=(' + pos.x + ',' + pos.y + ') ' + scaleInfo, 'warn');
+
             simCursor.classList.add('clicking');
             setTimeout(function() { simCursor.classList.remove('clicking'); }, 200);
 
