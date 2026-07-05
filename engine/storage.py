@@ -219,55 +219,62 @@ def list_screenshots(limit: int = 50) -> list[dict]:
 
 
 def get_default_param_template() -> dict:
-    """Default parameter template for Quora/forum reply automation."""
+    """Default parameter template with common automation parameters."""
     return {
-        "quora_username": {
-            "label": "Quora Username",
-            "type": "text",
-            "default": "",
+        "target_url": {
+            "label": "Target URL",
+            "type": "url",
+            "default": "https://www.baidu.com",
             "required": True,
-            "description": "Your Quora login username/email",
+            "description": "The website URL to automate",
         },
-        "quora_password": {
-            "label": "Quora Password",
-            "type": "password",
+        "keyword_list": {
+            "label": "Keyword List",
+            "type": "keyword_list",
             "default": "",
             "required": True,
-            "description": "Your Quora login password",
+            "description": "Search keywords, one per line",
         },
         "search_keyword": {
             "label": "Search Keyword",
             "type": "text",
             "default": "",
             "required": True,
-            "description": "Keyword to search for questions",
+            "description": "Keyword to search for",
         },
         "reply_text": {
             "label": "Reply Content",
             "type": "textarea",
             "default": "",
-            "required": True,
+            "required": False,
             "description": "The reply text to post",
         },
-        "max_results": {
-            "label": "Max Results",
-            "type": "number",
-            "default": 5,
+        "username": {
+            "label": "Username",
+            "type": "text",
+            "default": "",
             "required": False,
-            "description": "Maximum number of questions to process",
+            "description": "Login username or email",
         },
-        "reply_delay_min": {
-            "label": "Min Reply Delay (sec)",
-            "type": "number",
-            "default": 30,
+        "password": {
+            "label": "Password",
+            "type": "password",
+            "default": "",
             "required": False,
-            "description": "Minimum delay between replies",
+            "description": "Login password",
         },
-        "reply_delay_max": {
-            "label": "Max Reply Delay (sec)",
+        "max_pages": {
+            "label": "Max Pages",
             "type": "number",
-            "default": 60,
+            "default": "3",
             "required": False,
-            "description": "Maximum delay between replies",
+            "description": "Maximum pages to process",
+        },
+        "delay_seconds": {
+            "label": "Delay (seconds)",
+            "type": "number",
+            "default": "2",
+            "required": False,
+            "description": "Wait time between actions",
         },
     }

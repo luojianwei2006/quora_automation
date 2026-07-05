@@ -3,8 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ t('app.name') }} - {{ t('projects.title') }}</title>
+    <title>{{ t('app.name') }} - Projects</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+        .param-list-editor { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; }
+        .param-row { display: flex; gap: 6px; align-items: flex-start; background: #1a1a1a; padding: 8px 10px; border-radius: 6px; border: 1px solid #2a2a2a; }
+        .param-row:hover { border-color: #444; }
+        .param-row .param-info { flex: 1; min-width: 0; }
+        .param-row .param-info .param-key { font-size: 13px; color: #2196F3; font-weight: 600; font-family: monospace; }
+        .param-row .param-info .param-label { font-size: 12px; color: #ccc; margin-top: 2px; }
+        .param-row .param-info .param-desc { font-size: 10px; color: #666; }
+        .param-row .param-actions { display: flex; gap: 4px; }
+        .param-row .param-actions button { padding: 2px 6px; font-size: 11px; }
+        .param-type-badge {
+            display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px;
+            background: rgba(33,150,243,0.15); color: #64B5F6; margin-left: 6px;
+        }
+        .preset-group { margin-bottom: 16px; }
+        .preset-group h4 { font-size: 13px; color: #888; margin: 0 0 6px; }
+        .preset-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .preset-chip {
+            padding: 6px 12px; background: #2a2a2a; border: 1px solid #444;
+            border-radius: 6px; cursor: pointer; font-size: 12px; color: #ccc; transition: all 0.15s;
+        }
+        .preset-chip:hover { border-color: #2196F3; color: #fff; background: #1a3040; }
+        .form-modal-wide .modal-content { width: 720px; }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -29,7 +55,7 @@
     <div class="container">
         <header class="page-header">
             <h1>📂 Projects</h1>
-            <p>Manage automation projects and parameter templates</p>
+            <p>Manage automation projects with parameter templates</p>
             <button class="btn btn-primary" onclick="showCreateProject()">+ New Project</button>
         </header>
 
@@ -42,22 +68,51 @@
     </div>
 
     <!-- Create/Edit Project Modal -->
-    <div class="modal" id="projectModal">
+    <div class="modal form-modal-wide" id="projectModal">
         <div class="modal-content">
             <h3 id="projectModalTitle">New Project</h3>
             <input type="hidden" id="editProjectId">
-            <div class="form-group">
-                <label>Project Name</label>
-                <input id="projName" placeholder="e.g., Quora Tech Reply">
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea id="projDesc" placeholder="Project description"></textarea>
-            </div>
-            <div class="form-group">
-                <label>Parameter Template (JSON) — defines variables for this project</label>
-                <textarea id="projParams" style="min-height:200px;font-family:monospace;font-size:12px;"></textarea>
-                <small style="color:#666;">Edit the JSON template above. Each key is a parameter name, value defines label/type/default/required.</small>
+            <div class="two-col">
+                <div>
+                    <div class="form-group">
+                        <label>Project Name</label>
+                        <input id="projName" placeholder="e.g., Baidu Search Automation">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="projDesc" placeholder="Describe what this project automates" style="min-height:60px;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Target URL</label>
+                        <input id="projUrl" placeholder="e.g., https://www.baidu.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Keywords (one per line)</label>
+                        <textarea id="projKeywords" placeholder="keyword1&#10;keyword2&#10;keyword3" style="min-height:80px;"></textarea>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block;color:#aaa;font-size:12px;margin-bottom:8px;">Parameter Template</label>
+                    
+                    <div class="preset-group">
+                        <h4>➕ Add Common Parameter</h4>
+                        <div class="preset-chips">
+                            <div class="preset-chip" onclick="addParamFromPreset('target_url')">🌐 Target URL</div>
+                            <div class="preset-chip" onclick="addParamFromPreset('keyword_list')">🔤 Keyword List</div>
+                            <div class="preset-chip" onclick="addParamFromPreset('search_keyword')">🔍 Search Keyword</div>
+                            <div class="preset-chip" onclick="addParamFromPreset('reply_text')">💬 Reply Text</div>
+                            <div class="preset-chip" onclick="addParamFromPreset('username')">👤 Username</div>
+                            <div class="preset-chip" onclick="addParamFromPreset('password')">🔑 Password</div>
+                            <div class="preset-chip" onclick="addParamFromPreset('max_pages')">📄 Max Pages</div>
+                            <div class="preset-chip" onclick="addParamFromPreset('delay_seconds')">⏱️ Delay (sec)</div>
+                            <div class="preset-chip" onclick="addParamFromPreset('custom')">+ Custom</div>
+                        </div>
+                    </div>
+
+                    <div class="param-list-editor" id="paramListEditor">
+                        <div style="color:#555;text-align:center;padding:20px;">No parameters yet.<br>Click preset chips above or add custom.</div>
+                    </div>
+                </div>
             </div>
             <div class="form-actions">
                 <button class="btn btn-secondary" onclick="closeProjectModal()">Cancel</button>
@@ -66,9 +121,66 @@
         </div>
     </div>
 
+    <!-- Add Custom Parameter Modal -->
+    <div class="modal" id="paramDetailModal">
+        <div class="modal-content" style="width:400px;">
+            <h3 id="paramDetailTitle">Add Parameter</h3>
+            <div class="form-group">
+                <label>Key (machine name)</label>
+                <input id="pdKey" placeholder="e.g., search_keyword">
+            </div>
+            <div class="form-group">
+                <label>Display Label</label>
+                <input id="pdLabel" placeholder="e.g., Search Keyword">
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select id="pdType">
+                    <option value="text">Text</option>
+                    <option value="password">Password</option>
+                    <option value="textarea">Textarea (multi-line)</option>
+                    <option value="number">Number</option>
+                    <option value="url">URL</option>
+                    <option value="keyword_list">Keyword List (one per line)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Default Value</label>
+                <input id="pdDefault" placeholder="Default value (optional)">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input id="pdDesc" placeholder="Help text for this parameter">
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" id="pdRequired" checked> Required</label>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeParamModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmAddParam()">✔ Add</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/app.js"></script>
     <script>
         let currentProjects = [];
+        let editingParams = {};
+        let editingParamKey = '';
+
+        // Preset parameter definitions
+        const PARAM_PRESETS = {
+            target_url:        { key:'target_url', label:'Target URL', type:'url', desc:'The website URL to automate', required:true, default:'' },
+            keyword_list:      { key:'keyword_list', label:'Keyword List', type:'keyword_list', desc:'Search keywords, one per line', required:true, default:'' },
+            search_keyword:    { key:'search_keyword', label:'Search Keyword', type:'text', desc:'Single keyword to search for', required:true, default:'' },
+            reply_text:        { key:'reply_text', label:'Reply Content', type:'textarea', desc:'The reply message to post', required:true, default:'' },
+            username:          { key:'username', label:'Username', type:'text', desc:'Login username or email', required:false, default:'' },
+            password:          { key:'password', label:'Password', type:'password', desc:'Login password', required:false, default:'' },
+            max_pages:         { key:'max_pages', label:'Max Pages', type:'number', desc:'Maximum pages to process', required:false, default:'3' },
+            delay_seconds:     { key:'delay_seconds', label:'Delay (seconds)', type:'number', desc:'Wait between actions', required:false, default:'2' },
+        };
+
+        const TYPE_LABELS = { text:'Text', password:'Password', textarea:'Multi-line', number:'Number', url:'URL', keyword_list:'Keyword List' };
 
         async function loadProjects() {
             try {
@@ -76,47 +188,46 @@
                 const data = await res.json();
                 currentProjects = data.projects || [];
                 renderProjects();
-            } catch(e) {
-                console.error(e);
-            }
+            } catch(e) { console.error(e); }
         }
 
         function renderProjects() {
             const container = document.getElementById('projectList');
             const empty = document.getElementById('noProjects');
-
             if (currentProjects.length === 0) {
                 container.innerHTML = '';
                 empty.style.display = 'block';
                 return;
             }
             empty.style.display = 'none';
-
-            container.innerHTML = currentProjects.map(p => `
+            container.innerHTML = currentProjects.map(p => {
+                const params = p.param_template || {};
+                const paramCount = Object.keys(params).length;
+                return `
                 <div class="project-card">
                     <div class="project-header">
-                        <h3>${p.name}</h3>
+                        <h3>${escHtml(p.name)}</h3>
                         <div class="project-actions">
                             <button class="btn btn-sm btn-secondary" onclick="editProject('${p.id}')">✏ Edit</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}')">🗑 Delete</button>
                             <button class="btn btn-sm btn-primary" onclick="viewRecordings('${p.id}')">📋 Recordings</button>
-                            <button class="btn btn-sm btn-success" onclick="createTaskFromProject('${p.id}')">▶ New Task</button>
+                            <button class="btn btn-sm btn-success" onclick="createTaskFromProject('${p.id}')">▶ Run Task</button>
                         </div>
                     </div>
-                    <p class="project-desc">${p.description || 'No description'}</p>
+                    <p class="project-desc">${escHtml(p.description || 'No description')}</p>
                     <div class="project-meta">
-                        <span>Recordings: ${(p.recordings || []).length}</span>
-                        <span>Params: ${Object.keys(p.param_template || {}).length}</span>
-                        <span>Created: ${formatDate(p.created_at)}</span>
+                        <span>📋 Recordings: ${(p.recordings || []).length}</span>
+                        <span>⚙ Params: ${paramCount}</span>
+                        <span>📅 ${formatDate(p.created_at)}</span>
                     </div>
-                    ${p.param_template ? `
+                    ${paramCount > 0 ? `
                     <div class="param-list">
-                        ${Object.entries(p.param_template).map(([key, val]) => `
-                            <span class="param-tag">${key}: ${val.label || key}</span>
+                        ${Object.entries(params).map(([k, v]) => `
+                            <span class="param-tag">${escHtml(k)}: ${escHtml(v.label || k)} <span class="param-type-badge">${TYPE_LABELS[v.type] || v.type}</span></span>
                         `).join('')}
-                    </div>` : ''}
-                </div>
-            `).join('');
+                    </div>` : '<div style="font-size:11px;color:#555;margin-top:6px;">No parameters defined</div>'}
+                </div>`;
+            }).join('');
         }
 
         function showCreateProject() {
@@ -124,15 +235,10 @@
             document.getElementById('projectModalTitle').textContent = 'New Project';
             document.getElementById('projName').value = '';
             document.getElementById('projDesc').value = '';
-
-            // Load default template
-            fetch('/api/projects/default-template')
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('projParams').value =
-                        JSON.stringify(data.template || {}, null, 2);
-                });
-
+            document.getElementById('projUrl').value = '';
+            document.getElementById('projKeywords').value = '';
+            editingParams = {};
+            renderParamList();
             document.getElementById('projectModal').classList.add('show');
         }
 
@@ -143,8 +249,14 @@
             document.getElementById('projectModalTitle').textContent = 'Edit Project';
             document.getElementById('projName').value = p.name || '';
             document.getElementById('projDesc').value = p.description || '';
-            document.getElementById('projParams').value =
-                JSON.stringify(p.param_template || {}, null, 2);
+            
+            // Extract URL and keywords from param_template
+            const pt = p.param_template || {};
+            document.getElementById('projUrl').value = (pt.target_url || {}).default || '';
+            document.getElementById('projKeywords').value = (pt.keyword_list || {}).default || '';
+            
+            editingParams = JSON.parse(JSON.stringify(pt));
+            renderParamList();
             document.getElementById('projectModal').classList.add('show');
         }
 
@@ -152,34 +264,136 @@
             document.getElementById('projectModal').classList.remove('show');
         }
 
+        // ─── Parameter List Editor ────────────────────────────
+
+        function addParamFromPreset(presetKey) {
+            if (presetKey === 'custom') {
+                openParamDetail('', '', '', '', '', 'text', true);
+                return;
+            }
+            const preset = PARAM_PRESETS[presetKey];
+            if (!preset) return;
+            if (editingParams[preset.key]) {
+                if (!confirm(`Parameter "${preset.key}" already exists. Overwrite?`)) return;
+            }
+            editingParams[preset.key] = {
+                label: preset.label,
+                type: preset.type,
+                default: preset.default,
+                required: preset.required,
+                description: preset.desc,
+            };
+            renderParamList();
+        }
+
+        function renderParamList() {
+            const container = document.getElementById('paramListEditor');
+            const keys = Object.keys(editingParams);
+            if (keys.length === 0) {
+                container.innerHTML = '<div style="color:#555;text-align:center;padding:20px;">No parameters yet.<br>Click preset chips above.</div>';
+                return;
+            }
+            container.innerHTML = keys.map(k => {
+                const p = editingParams[k];
+                return `
+                <div class="param-row">
+                    <div class="param-info">
+                        <div class="param-key">${escHtml(k)} <span class="param-type-badge">${TYPE_LABELS[p.type] || p.type}</span></div>
+                        <div class="param-label">${escHtml(p.label || k)} ${p.required ? '<span style="color:#f44336;">*</span>' : ''}</div>
+                        ${p.description ? `<div class="param-desc">${escHtml(p.description)}</div>` : ''}
+                        ${p.default ? `<div class="param-desc">Default: "${escHtml(p.default.substring(0,40))}"</div>` : ''}
+                    </div>
+                    <div class="param-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="editParam('${k}')">✏</button>
+                        <button class="btn btn-sm btn-danger" onclick="removeParam('${k}')">✕</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function editParam(key) {
+            const p = editingParams[key];
+            if (!p) return;
+            openParamDetail(key, p.label || '', p.type || 'text', p.default || '', p.description || '', p.required !== false);
+        }
+
+        function removeParam(key) {
+            if (!confirm(`Remove parameter "${key}"?`)) return;
+            delete editingParams[key];
+            renderParamList();
+        }
+
+        // ─── Parameter Detail Modal ───────────────────────────
+
+        function openParamDetail(key, label, type, def, desc, required) {
+            editingParamKey = key;
+            document.getElementById('paramDetailTitle').textContent = key ? 'Edit Parameter' : 'Add Parameter';
+            document.getElementById('pdKey').value = key;
+            document.getElementById('pdKey').disabled = !!key;
+            document.getElementById('pdLabel').value = label;
+            document.getElementById('pdType').value = type;
+            document.getElementById('pdDefault').value = def;
+            document.getElementById('pdDesc').value = desc;
+            document.getElementById('pdRequired').checked = required !== false;
+            document.getElementById('paramDetailModal').classList.add('show');
+        }
+
+        function closeParamModal() {
+            document.getElementById('paramDetailModal').classList.remove('show');
+        }
+
+        function confirmAddParam() {
+            const key = editingParamKey || document.getElementById('pdKey').value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+            if (!key) { alert('Parameter key is required'); return; }
+            const label = document.getElementById('pdLabel').value.trim();
+            if (!label) { alert('Label is required'); return; }
+
+            editingParams[key] = {
+                label: label,
+                type: document.getElementById('pdType').value,
+                default: document.getElementById('pdDefault').value,
+                required: document.getElementById('pdRequired').checked,
+                description: document.getElementById('pdDesc').value,
+            };
+            closeParamModal();
+            renderParamList();
+        }
+
+        // ─── Save Project ─────────────────────────────────────
+
         async function saveProject() {
             const id = document.getElementById('editProjectId').value;
             const name = document.getElementById('projName').value.trim();
             const desc = document.getElementById('projDesc').value.trim();
-            let paramTemplate;
-            try {
-                paramTemplate = JSON.parse(document.getElementById('projParams').value);
-            } catch(e) {
-                alert('Invalid JSON in parameter template: ' + e.message);
-                return;
-            }
+            const url = document.getElementById('projUrl').value.trim();
+            const keywords = document.getElementById('projKeywords').value.trim();
 
             if (!name) { alert('Project name is required'); return; }
 
+            // Auto-merge URL and keywords into parameter template
+            let params = JSON.parse(JSON.stringify(editingParams));
+            if (url) {
+                if (!params.target_url) {
+                    params.target_url = { label: 'Target URL', type: 'url', default: url, required: true, description: 'The website URL to automate' };
+                } else {
+                    params.target_url.default = url;
+                }
+            }
+            if (keywords) {
+                if (!params.keyword_list) {
+                    params.keyword_list = { label: 'Keyword List', type: 'keyword_list', default: keywords, required: true, description: 'Search keywords, one per line' };
+                } else {
+                    params.keyword_list.default = keywords;
+                }
+            }
+
             try {
                 let res;
+                const body = JSON.stringify({ name, description: desc, param_template: params });
                 if (id) {
-                    res = await fetch(`/api/projects/${id}`, {
-                        method: 'PUT',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({name, description: desc, param_template: paramTemplate})
-                    });
+                    res = await fetch(`/api/projects/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body });
                 } else {
-                    res = await fetch('/api/projects', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({name, description: desc, param_template: paramTemplate})
-                    });
+                    res = await fetch('/api/projects', { method: 'POST', headers: {'Content-Type': 'application/json'}, body });
                 }
                 const data = await res.json();
                 if (data.status === 'ok') {
@@ -188,34 +402,28 @@
                 } else {
                     alert('Error: ' + (data.error || 'Unknown'));
                 }
-            } catch(e) {
-                alert('Error: ' + e.message);
-            }
+            } catch(e) { alert('Error: ' + e.message); }
         }
 
         async function deleteProject(id) {
             if (!confirm('Delete this project and all associated data?')) return;
             try {
-                await fetch(`/api/projects/${id}`, {method: 'DELETE'});
+                await fetch(`/api/projects/${id}`, { method: 'DELETE' });
                 loadProjects();
-            } catch(e) {
-                alert('Error: ' + e.message);
-            }
+            } catch(e) { alert('Error: ' + e.message); }
         }
 
-        function viewRecordings(projectId) {
-            window.location.href = `/recording?project_id=${projectId}`;
-        }
-
-        function createTaskFromProject(projectId) {
-            window.location.href = `/tasks?project_id=${projectId}`;
-        }
+        function viewRecordings(pid) { window.location.href = `/recording?project_id=${pid}`; }
+        function createTaskFromProject(pid) { window.location.href = `/tasks?project_id=${pid}`; }
 
         function formatDate(d) {
             if (!d) return '';
-            return new Date(d).toLocaleDateString('en-US', {
-                year: 'numeric', month: 'short', day: 'numeric'
-            });
+            return new Date(d).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+        }
+
+        function escHtml(s) {
+            if (!s) return '';
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
         loadProjects();
