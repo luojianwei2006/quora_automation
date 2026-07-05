@@ -221,20 +221,6 @@ def list_screenshots(limit: int = 50) -> list[dict]:
 def get_default_param_template() -> dict:
     """Default parameter template with common automation parameters."""
     return {
-        "target_url": {
-            "label": "Target URL",
-            "type": "url",
-            "default": "https://www.baidu.com",
-            "required": True,
-            "description": "The website URL to automate",
-        },
-        "keyword_list": {
-            "label": "Keyword List",
-            "type": "keyword_list",
-            "default": "",
-            "required": True,
-            "description": "Search keywords, one per line",
-        },
         "search_keyword": {
             "label": "Search Keyword",
             "type": "text",

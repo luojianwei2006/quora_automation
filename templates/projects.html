@@ -97,8 +97,6 @@
                     <div class="preset-group">
                         <h4>➕ Add Common Parameter</h4>
                         <div class="preset-chips">
-                            <div class="preset-chip" onclick="addParamFromPreset('target_url')">🌐 Target URL</div>
-                            <div class="preset-chip" onclick="addParamFromPreset('keyword_list')">🔤 Keyword List</div>
                             <div class="preset-chip" onclick="addParamFromPreset('search_keyword')">🔍 Search Keyword</div>
                             <div class="preset-chip" onclick="addParamFromPreset('reply_text')">💬 Reply Text</div>
                             <div class="preset-chip" onclick="addParamFromPreset('username')">👤 Username</div>
@@ -170,8 +168,6 @@
 
         // Preset parameter definitions
         const PARAM_PRESETS = {
-            target_url:        { key:'target_url', label:'Target URL', type:'url', desc:'The website URL to automate', required:true, default:'' },
-            keyword_list:      { key:'keyword_list', label:'Keyword List', type:'keyword_list', desc:'Search keywords, one per line', required:true, default:'' },
             search_keyword:    { key:'search_keyword', label:'Search Keyword', type:'text', desc:'Single keyword to search for', required:true, default:'' },
             reply_text:        { key:'reply_text', label:'Reply Content', type:'textarea', desc:'The reply message to post', required:true, default:'' },
             username:          { key:'username', label:'Username', type:'text', desc:'Login username or email', required:false, default:'' },
@@ -250,12 +246,11 @@
             document.getElementById('projName').value = p.name || '';
             document.getElementById('projDesc').value = p.description || '';
             
-            // Extract URL and keywords from param_template
-            const pt = p.param_template || {};
-            document.getElementById('projUrl').value = (pt.target_url || {}).default || '';
-            document.getElementById('projKeywords').value = (pt.keyword_list || {}).default || '';
+            // Load URL and keywords from project top-level fields
+            document.getElementById('projUrl').value = p.target_url || '';
+            document.getElementById('projKeywords').value = p.keywords || '';
             
-            editingParams = JSON.parse(JSON.stringify(pt));
+            editingParams = JSON.parse(JSON.stringify(p.param_template || {}));
             renderParamList();
             document.getElementById('projectModal').classList.add('show');
         }
@@ -370,26 +365,13 @@
 
             if (!name) { alert('Project name is required'); return; }
 
-            // Auto-merge URL and keywords into parameter template
-            let params = JSON.parse(JSON.stringify(editingParams));
-            if (url) {
-                if (!params.target_url) {
-                    params.target_url = { label: 'Target URL', type: 'url', default: url, required: true, description: 'The website URL to automate' };
-                } else {
-                    params.target_url.default = url;
-                }
-            }
-            if (keywords) {
-                if (!params.keyword_list) {
-                    params.keyword_list = { label: 'Keyword List', type: 'keyword_list', default: keywords, required: true, description: 'Search keywords, one per line' };
-                } else {
-                    params.keyword_list.default = keywords;
-                }
-            }
-
-            try {
-                let res;
-                const body = JSON.stringify({ name, description: desc, param_template: params });
+            // URL and keywords as top-level fields (not in param_template)
+            const body = JSON.stringify({
+                name, description: desc,
+                target_url: url,
+                keywords: keywords,
+                param_template: editingParams
+            });
                 if (id) {
                     res = await fetch(`/api/projects/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body });
                 } else {
