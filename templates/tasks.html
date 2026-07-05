@@ -266,6 +266,7 @@
                         <p><strong>Status:</strong> <span class="status-${t.status}">${t.status}</span></p>
                         <p><strong>Created:</strong> ${formatDate(t.created_at)}</p>
                         <p><strong>Updated:</strong> ${formatDate(t.updated_at)}</p>
+                        ${t.recording_id ? `<p><strong>Recording:</strong> ${t.recording_id}</p>` : '<p style="color:#f44336;">⚠ No events recorded yet — click 📝 Event Edit</p>'}
                     </div>
 
                     <h4 style="color:#fff;margin:12px 0 8px;">Parameters</h4>

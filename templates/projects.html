@@ -206,13 +206,11 @@
                         <div class="project-actions">
                             <button class="btn btn-sm btn-secondary" onclick="editProject('${p.id}')">✏ Edit</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}')">🗑 Delete</button>
-                            <button class="btn btn-sm btn-primary" onclick="viewRecordings('${p.id}')">📋 Recordings</button>
-                            <button class="btn btn-sm btn-success" onclick="createTaskFromProject('${p.id}')">▶ Run Task</button>
+                            <button class="btn btn-sm btn-success" onclick="createTaskFromProject('${p.id}')">▶ New Task</button>
                         </div>
                     </div>
                     <p class="project-desc">${escHtml(p.description || 'No description')}</p>
                     <div class="project-meta">
-                        <span>📋 Recordings: ${(p.recordings || []).length}</span>
                         <span>⚙ Params: ${paramCount}</span>
                         <span>📅 ${formatDate(p.created_at)}</span>
                     </div>
@@ -398,7 +396,6 @@
             } catch(e) { alert('Error: ' + e.message); }
         }
 
-        function viewRecordings(pid) { window.location.href = `/recording?project_id=${pid}`; }
         function createTaskFromProject(pid) { window.location.href = `/tasks?project_id=${pid}`; }
 
         function formatDate(d) {
