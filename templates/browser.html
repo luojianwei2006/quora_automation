@@ -702,6 +702,31 @@
         let _rawClickX = 0, _rawClickY = 0;  // Unscaled phone-screen coords for preview
         let isRecordingMode = true;
         let dragStartX = 0, dragStartY = 0, isDraggingForRecord = false;
+        // Project/task context (from URL params)
+        var _projectId = '';
+        var _taskId = '';
+        var _autoUrl = '';
+
+        // ── Init from URL params ───────────────────────────────
+        (function() {
+            var p = new URLSearchParams(window.location.search);
+            _projectId = p.get('project_id') || '';
+            _taskId = p.get('task_id') || '';
+            _autoUrl = p.get('url') || '';
+            if (_autoUrl) {
+                document.getElementById('urlInput').value = _autoUrl;
+            }
+            if (_taskId) {
+                debug('📋 Task context: project=' + _projectId + ' task=' + _taskId + ' url=' + _autoUrl, 'info');
+                // Show task banner
+                var banner = document.createElement('div');
+                banner.style.cssText = 'background:#1a237e;color:#9fa8da;text-align:center;padding:6px;font-size:12px;margin-bottom:4px;border-radius:4px;';
+                banner.innerHTML = '📝 <b>Task Recording Mode</b> — Events saved to this task';
+                if (document.getElementById('actionPanel')) {
+                    document.getElementById('actionPanel').insertBefore(banner, document.getElementById('actionPanel').firstChild);
+                }
+            }
+        })();
 
         // ─── Debug logger ───────────────────────────────────────────
         // ─── Tab Switching ──────────────────────────────────
@@ -1700,18 +1725,20 @@
         // ─── Save / Load ───────────────────────────────────────────
 
         async function saveRecording() {
+            if (_taskId) {
+                // Task mode: save events directly to task
+                await saveToTask();
+                return;
+            }
             const name = prompt('Recording name:', 'Quora Reply Workflow');
             if (!name) return;
 
             try {
-                // First set the recording
                 await fetch('/api/recording/new', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({name: name})
                 });
-
-                // Add all actions
                 for (const action of currentActions) {
                     await fetch('/api/recording/add-action', {
                         method: 'POST',
@@ -1719,8 +1746,6 @@
                         body: JSON.stringify(action)
                     });
                 }
-
-                // Save
                 const res = await fetch('/api/recording/save', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -1729,6 +1754,50 @@
                 const data = await res.json();
                 if (data.status === 'ok') {
                     alert(`Recording saved! ID: ${data.recording.id}`);
+                }
+            } catch(e) {
+                alert('Error saving: ' + e.message);
+            }
+        }
+
+        async function saveToTask() {
+            if (!_taskId || currentActions.length === 0) {
+                alert('No events to save');
+                return;
+            }
+            try {
+                // Save recording first
+                await fetch('/api/recording/new', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: 'Task Recording', project_id: _projectId})
+                });
+                for (const action of currentActions) {
+                    await fetch('/api/recording/add-action', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(action)
+                    });
+                }
+                const saveRes = await fetch('/api/recording/save', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: 'Task Recording', project_id: _projectId})
+                });
+                const saveData = await saveRes.json();
+                
+                if (saveData.status === 'ok') {
+                    // Associate recording with task
+                    await fetch(`/api/tasks/${_taskId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({recording_id: saveData.recording.id})
+                    });
+                    debug('✅ Events saved to task ' + _taskId, 'ok');
+                    // Redirect back to tasks page
+                    setTimeout(() => {
+                        window.location.href = '/tasks?project_id=' + _projectId;
+                    }, 500);
                 }
             } catch(e) {
                 alert('Error saving: ' + e.message);

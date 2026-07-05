@@ -74,6 +74,7 @@
             <div id="taskDetailContent"></div>
             <div class="form-actions">
                 <button class="btn btn-secondary" onclick="document.getElementById('taskDetailModal').classList.remove('show')">Close</button>
+                <button class="btn btn-warning" id="editEventsBtn" onclick="openEventEditor()">📝 Event Edit</button>
                 <button class="btn btn-primary" id="runTaskBtn" onclick="runTask()">▶ Run Task</button>
             </div>
         </div>
@@ -297,10 +298,22 @@
                 `;
 
                 document.getElementById('runTaskBtn').textContent = t.status === 'running' ? '⏳ Running...' : '▶ Run Task';
+                document.getElementById('editEventsBtn').style.display = '';
                 document.getElementById('taskDetailModal').classList.add('show');
             } catch(e) {
                 alert('Error: ' + e.message);
             }
+        }
+
+        function openEventEditor() {
+            if (!selectedTaskId) return;
+            // Find the task's project
+            const task = currentTasks.find(t => t.id === selectedTaskId);
+            if (!task) return;
+            const project = currentProjects.find(p => p.id === task.project_id);
+            const url = project?.target_url || '';
+            // Navigate to browser with project/task context
+            window.location.href = `/browser?project_id=${task.project_id}&task_id=${selectedTaskId}&url=${encodeURIComponent(url)}`;
         }
 
         async function runExistingTask(id) {
