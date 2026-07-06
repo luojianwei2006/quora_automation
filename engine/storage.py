@@ -57,12 +57,15 @@ def get_project(project_id: str) -> Optional[dict]:
     return _load_json(os.path.join(PROJECTS_DIR, f"{project_id}.json")) or None
 
 
-def create_project(name: str, description: str = "", param_template: dict = None) -> dict:
+def create_project(name: str, description: str = "", param_template: dict = None,
+                   target_url: str = "", keywords: str = "") -> dict:
     _ensure_dirs()
     project = {
         "id": str(uuid.uuid4())[:8],
         "name": name,
         "description": description,
+        "target_url": target_url,
+        "keywords": keywords,
         "param_template": param_template or {},
         "recordings": [],
         "created_at": datetime.now().isoformat(),
@@ -77,7 +80,7 @@ def update_project(project_id: str, **kwargs) -> Optional[dict]:
     if not project:
         return None
     for k, v in kwargs.items():
-        if k in ("name", "description", "param_template"):
+        if k in ("name", "description", "param_template", "target_url", "keywords"):
             project[k] = v
     project["updated_at"] = datetime.now().isoformat()
     _save_json(os.path.join(PROJECTS_DIR, f"{project_id}.json"), project)

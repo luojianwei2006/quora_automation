@@ -538,6 +538,8 @@ def api_project_create():
         name=data.get("name", "New Project"),
         description=data.get("description", ""),
         param_template=param_template,
+        target_url=data.get("target_url", ""),
+        keywords=data.get("keywords", ""),
     )
     return jsonify({"status": "ok", "project": project})
 
