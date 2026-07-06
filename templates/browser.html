@@ -706,27 +706,91 @@
         var _projectId = '';
         var _taskId = '';
         var _autoUrl = '';
+        var _projectData = null;
+        var _taskData = null;
 
         // ── Init from URL params ───────────────────────────────
-        (function() {
+        (async function() {
             var p = new URLSearchParams(window.location.search);
             _projectId = p.get('project_id') || '';
             _taskId = p.get('task_id') || '';
             _autoUrl = p.get('url') || '';
-            if (_autoUrl) {
+            
+            if (_taskId) {
+                // Fetch project and task details
+                try {
+                    var [projRes, taskRes] = await Promise.all([
+                        fetch('/api/projects/' + _projectId),
+                        fetch('/api/tasks/' + _taskId)
+                    ]);
+                    var projData = await projRes.json();
+                    var taskData = await taskRes.json();
+                    _projectData = projData.project || {};
+                    _taskData = taskData.task || {};
+                } catch(e) {}
+                
+                // Set URL from project
+                var url = _autoUrl || (_projectData.target_url || '');
+                if (url) document.getElementById('urlInput').value = url;
+
+                // Build info banner
+                var banner = document.createElement('div');
+                banner.id = 'taskInfoBanner';
+                banner.style.cssText = 'background:#1a237e;color:#9fa8da;padding:8px 10px;font-size:11px;margin-bottom:6px;border-radius:4px;line-height:1.5;';
+                banner.innerHTML = 
+                    '<div style="margin-bottom:4px;">📂 <b>' + escHtml(_projectData.name || 'Project') + '</b> → 📋 <b>' + escHtml(_taskData.name || 'Task') + '</b></div>' +
+                    '<button id="showTaskParamsBtn" onclick="toggleTaskParams()" style="background:#283593;color:#9fa8da;border:1px solid #3f51b5;border-radius:3px;padding:3px 8px;font-size:10px;cursor:pointer;">📋 Show Params & Links</button>' +
+                    '<div id="taskParamsPopup" style="display:none;margin-top:6px;padding:6px 8px;background:#0d1550;border-radius:4px;"></div>';
+                
+                var actionPanel = document.getElementById('actionPanel');
+                if (actionPanel) {
+                    actionPanel.insertBefore(banner, actionPanel.firstChild);
+                }
+                debug('📂 Task: ' + (_projectData.name||'') + ' / ' + (_taskData.name||''), 'info');
+            } else if (_autoUrl) {
                 document.getElementById('urlInput').value = _autoUrl;
             }
-            if (_taskId) {
-                debug('📋 Task context: project=' + _projectId + ' task=' + _taskId + ' url=' + _autoUrl, 'info');
-                // Show task banner
-                var banner = document.createElement('div');
-                banner.style.cssText = 'background:#1a237e;color:#9fa8da;text-align:center;padding:6px;font-size:12px;margin-bottom:4px;border-radius:4px;';
-                banner.innerHTML = '📝 <b>Task Recording Mode</b> — Events saved to this task';
-                if (document.getElementById('actionPanel')) {
-                    document.getElementById('actionPanel').insertBefore(banner, document.getElementById('actionPanel').firstChild);
-                }
-            }
         })();
+
+        function escHtml(s) {
+            if (!s) return '';
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function toggleTaskParams() {
+            var popup = document.getElementById('taskParamsPopup');
+            if (popup.style.display === 'block') {
+                popup.style.display = 'none';
+                return;
+            }
+            // Build params display
+            var html = '';
+            // URL
+            if (_projectData.target_url) {
+                html += '<div style="margin:2px 0;">🌐 <b>URL:</b> <a href="' + _projectData.target_url + '" target="_blank" style="color:#64B5F6;">' + _projectData.target_url + '</a></div>';
+            }
+            if (_projectData.keywords) {
+                html += '<div style="margin:2px 0;">🔤 <b>Keywords:</b><br><code style="color:#a5d6a7;white-space:pre-wrap;">' + escHtml(_projectData.keywords) + '</code></div>';
+            }
+            // Param template
+            var pt = _projectData.param_template || {};
+            var keys = Object.keys(pt);
+            if (keys.length > 0) {
+                html += '<div style="margin:4px 0 2px;color:#7986cb;">⚙ Parameters:</div>';
+                keys.forEach(function(k) {
+                    var pd = pt[k];
+                    html += '<div style="margin:1px 0 1px 8px;font-size:10px;"><b>' + escHtml(k) + '</b> (' + (pd.type||'text') + '): ' + escHtml(pd.label||k) + '</div>';
+                });
+            }
+            if (_taskData.params && Object.keys(_taskData.params).length > 0) {
+                html += '<div style="margin:4px 0 2px;color:#7986cb;">📝 Task Values:</div>';
+                Object.entries(_taskData.params).forEach(function([k, v]) {
+                    html += '<div style="margin:1px 0 1px 8px;font-size:10px;"><b>' + escHtml(k) + '</b>: <span style="color:#a5d6a7;">' + escHtml(String(v).substring(0,60)) + '</span></div>';
+                });
+            }
+            popup.innerHTML = html || '<span style="color:#666;">No parameters</span>';
+            popup.style.display = 'block';
+        }
 
         // ─── Debug logger ───────────────────────────────────────────
         // ─── Tab Switching ──────────────────────────────────
