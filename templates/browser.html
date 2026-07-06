@@ -755,6 +755,79 @@
         function escHtml(s) {
             if (!s) return '';
             return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        // ── Variable resolution for {{param_name}} ────────────
+        function getAllVars() {
+            var vars = {};
+            if (_projectData) {
+                vars.target_url = _projectData.target_url || '';
+                vars.keywords = _projectData.keywords || '';
+                var pt = _projectData.param_template || {};
+                Object.keys(pt).forEach(function(k) { vars[k] = pt[k].default || ''; });
+            }
+            if (_taskData && _taskData.params) {
+                Object.keys(_taskData.params).forEach(function(k) { vars[k] = _taskData.params[k] || ''; });
+            }
+            return vars;
+        }
+
+        function populateAvailableVars() {
+            var vars = getAllVars();
+            var container = document.getElementById('availVars');
+            if (!container) return;
+            var keys = Object.keys(vars);
+            if (keys.length === 0) {
+                container.innerHTML = '<span style="color:#555;font-size:10px;">No project/task variables</span>';
+                return;
+            }
+            container.innerHTML = keys.map(function(k) {
+                var val = String(vars[k] || '').substring(0, 30);
+                return '<span onclick="insertVar(\'' + k + '\')" style="cursor:pointer;background:#2a2a2a;color:#64B5F6;padding:2px 6px;border-radius:3px;font-size:10px;font-family:monospace;" title="' + (val.replace(/"/g,'&quot;')) + '">{{' + k + '}}</span>';
+            }).join('');
+        }
+
+        function insertVar(name) {
+            var ta = document.getElementById('f_text');
+            if (!ta) return;
+            var pos = ta.selectionStart || ta.value.length;
+            ta.value = ta.value.substring(0, pos) + '{{' + name + '}}' + ta.value.substring(pos);
+            ta.focus();
+            resolveInputVars();
+        }
+
+        function resolveInputVars() {
+            var ta = document.getElementById('f_text');
+            var preview = document.getElementById('f_text_preview');
+            if (!ta || !preview) return;
+            var text = ta.value;
+            var vars = getAllVars();
+            var resolved = text;
+            var hasVars = false;
+            Object.keys(vars).forEach(function(k) {
+                var pattern = '{{' + k + '}}';
+                if (text.indexOf(pattern) >= 0) {
+                    var val = String(vars[k]);
+                    resolved = resolved.split(pattern).join('<span style=\"color:#a5d6a7;font-weight:600;\">' + val.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>');
+                    hasVars = true;
+                }
+            });
+            if (hasVars) {
+                preview.innerHTML = 'Resolved: ' + resolved;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        function resolveVarsInText(text) {
+            var vars = getAllVars();
+            var resolved = text;
+            Object.keys(vars).forEach(function(k) {
+                resolved = resolved.split('{{' + k + '}}').join(String(vars[k]));
+            });
+            return resolved;
+        }
+
         }
 
         function toggleTaskParams() {
@@ -1282,8 +1355,13 @@
             } else if (type === 'input') {
                 html += `
                     <div class="form-group">
-                        <label>Text to Input</label>
-                        <textarea id="f_text" placeholder="Enter text..."></textarea>
+                        <label>Text to Input <span style="color:#666;font-size:10px;">— use {{param_name}} to reference project/task params</span></label>
+                        <textarea id="f_text" placeholder="Enter text or {{param_name}}..." oninput="resolveInputVars()" style="min-height:60px;"></textarea>
+                        <div id="f_text_preview" style="margin-top:4px;padding:4px 8px;background:#1a1a1a;border-radius:4px;font-size:11px;color:#888;display:none;"></div>
+                    </div>
+                    <div style="margin-bottom:8px;padding:6px 8px;background:#111;border-radius:4px;">
+                        <div style="font-size:10px;color:#666;margin-bottom:4px;">📋 Available variables (click to insert):</div>
+                        <div id="availVars" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
                     </div>
                     <div class="form-group">
                         <label>CSS Selector (optional)</label>
@@ -1403,6 +1481,12 @@
             formContent.textContent = `Record ${typeLabels[type] || type}`;
             fields.innerHTML = html;
 
+            // Populate available variables for input text
+            if (type === 'input') {
+                populateAvailableVars();
+                resolveInputVars();
+            }
+
             // Show click area preview (for position-based actions)
             var showPreview = ['click','longpress','drag','input','paste','scroll'].indexOf(type) >= 0;
             var preview = document.getElementById('formPreview');
@@ -1472,7 +1556,7 @@
                     break;
                 case 'input':
                     endpoint = '/api/browser/input';
-                    body.text = action.text || '';
+                    body.text = (typeof resolveVarsInText === 'function') ? resolveVarsInText(action.text || '') : (action.text || '');
                     body.selector = action.selector || '';
                     break;
                 case 'scroll':
@@ -1538,7 +1622,7 @@
                 y: safeInt('f_y'),
                 target_x: safeInt('f_target_x'),
                 target_y: safeInt('f_target_y'),
-                text: val('f_text'),
+                text: val('f_text') && (typeof resolveVarsInText === 'function') ? resolveVarsInText(val('f_text')) : val('f_text'),
                 selector: val('f_selector'),
                 url: val('f_url'),
                 description: val('f_description'),
