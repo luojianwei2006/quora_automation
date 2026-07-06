@@ -1483,8 +1483,8 @@
 
             // Populate available variables for input text
             if (type === 'input') {
-                populateAvailableVars();
-                resolveInputVars();
+                try { populateAvailableVars(); } catch(e) { console.log('populateVars error:', e); }
+                try { resolveInputVars(); } catch(e) { console.log('resolveVars error:', e); }
             }
 
             // Show click area preview (for position-based actions)
