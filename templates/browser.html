@@ -708,6 +708,8 @@
         var _autoUrl = '';
         var _projectData = null;
         var _taskData = null;
+        var _contextReady = false;  // True after project/task data loaded
+        var _contextRefreshDone = false;
 
         // ── Init from URL params ───────────────────────────────
         (async function() {
@@ -727,7 +729,8 @@
                     var taskData = await taskRes.json();
                     _projectData = projData.project || {};
                     _taskData = taskData.task || {};
-                } catch(e) {}
+                    _contextReady = true;
+                } catch(e) { _contextReady = true; }
                 
                 // Set URL from project
                 var url = _autoUrl || (_projectData.target_url || '');
@@ -792,15 +795,22 @@
                 var pd = await pr.json(); var td = await tr.json();
                 _projectData = pd.project || {};
                 _taskData = td.task || {};
+                _contextReady = true;
                 populateAvailableVars();
+                resolveInputVars();
                 resolveInputVars();
             } catch(e) {}
         }
 
         function populateAvailableVars() {
-            var vars = getAllVars();
             var container = document.getElementById('availVars');
             if (!container) return;
+            if (!_contextReady && _taskId) {
+                container.innerHTML = '<span style="color:#FF9800;font-size:10px;">⏳ Loading variables...</span>';
+                refreshTaskContext();
+                return;
+            }
+            var vars = getAllVars();
             var keys = Object.keys(vars);
             if (keys.length === 0) {
                 container.innerHTML = '<span style="color:#555;font-size:10px;">No project/task variables</span>';
