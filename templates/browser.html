@@ -759,8 +759,13 @@
         // ── Variable resolution for {{param_name}} ────────────
         function getAllVars() {
             var vars = {};
+            // Always include URL from the input field
+            var urlInput = document.getElementById('urlInput');
+            if (urlInput && urlInput.value) {
+                vars.target_url = urlInput.value;
+            }
             if (_projectData) {
-                vars.target_url = _projectData.target_url || '';
+                vars.target_url = _projectData.target_url || vars.target_url || '';
                 vars.keywords = _projectData.keywords || '';
                 var pt = _projectData.param_template || {};
                 Object.keys(pt).forEach(function(k) { vars[k] = pt[k].default || ''; });
@@ -768,7 +773,28 @@
             if (_taskData && _taskData.params) {
                 Object.keys(_taskData.params).forEach(function(k) { vars[k] = _taskData.params[k] || ''; });
             }
+            // If data not loaded yet, trigger a refresh
+            if (!_projectData && _taskId && _projectId) {
+                refreshTaskContext();
+            }
             return vars;
+        }
+
+        var _contextRefreshDone = false;
+        async function refreshTaskContext() {
+            if (_contextRefreshDone) return;
+            _contextRefreshDone = true;
+            try {
+                var [pr, tr] = await Promise.all([
+                    fetch('/api/projects/' + _projectId),
+                    fetch('/api/tasks/' + _taskId)
+                ]);
+                var pd = await pr.json(); var td = await tr.json();
+                _projectData = pd.project || {};
+                _taskData = td.task || {};
+                populateAvailableVars();
+                resolveInputVars();
+            } catch(e) {}
         }
 
         function populateAvailableVars() {
