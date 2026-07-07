@@ -487,28 +487,32 @@ def api_play_start():
 
     def playback_worker():
         socketio.emit("playback:start", {"total": len(recording.actions)})
+        # Hold the lock only to initialize the shared browser/player singletons,
+        # then release it so the live /browser page is NOT blocked for the whole
+        # (potentially long) playback run.
         with _browser_lock:
-            try:
-                player = get_player()
-                player._screenshot_every_step = True
+            player = get_player()
+            get_browser().start()
+        try:
+            player._screenshot_every_step = True
 
-                def on_step(result, progress):
-                    socketio.emit("playback:step", {
-                        "result": result.to_dict(),
-                        "progress": progress,
-                        "step": result.index + 1,
-                        "total": len(recording.actions),
-                    })
+            def on_step(result, progress):
+                socketio.emit("playback:step", {
+                    "result": result.to_dict(),
+                    "progress": progress,
+                    "step": result.index + 1,
+                    "total": len(recording.actions),
+                })
 
-                player.set_callbacks(on_step=on_step)
-                results = player.play_recording(
-                    recording,
-                    continue_on_error=continue_on_error,
-                )
-                summary = player.get_results_summary()
-                socketio.emit("playback:complete", {"summary": summary})
-            except Exception as e:
-                socketio.emit("playback:error", {"error": str(e)})
+            player.set_callbacks(on_step=on_step)
+            results = player.play_recording(
+                recording,
+                continue_on_error=continue_on_error,
+            )
+            summary = player.get_results_summary()
+            socketio.emit("playback:complete", {"summary": summary})
+        except Exception as e:
+            socketio.emit("playback:error", {"error": str(e)})
 
     _play_thread = threading.Thread(target=playback_worker, daemon=True)
     _play_thread.start()
@@ -655,38 +659,40 @@ def api_task_run(task_id):
 
     def task_worker():
         socketio.emit("task:start", {"task_id": task_id, "total": len(recording.actions)})
+        # Hold the lock only for setup; release before playback so the live
+        # browser page stays responsive and other commands aren't blocked.
         with _browser_lock:
-            try:
-                browser = get_browser()
-                browser.start()
-                player = get_player()
-                player._screenshot_every_step = True
-                player._variable_store.update(task_params)
+            browser = get_browser()
+            browser.start()
+            player = get_player()
+            player._screenshot_every_step = True
+            player._variable_store.update(task_params)
 
-                def on_step(result, progress):
-                    socketio.emit("task:step", {
-                        "task_id": task_id,
-                        "result": result.to_dict(),
-                        "progress": progress,
-                    })
+        def on_step(result, progress):
+            socketio.emit("task:step", {
+                "task_id": task_id,
+                "result": result.to_dict(),
+                "progress": progress,
+            })
 
-                player.set_callbacks(on_step=on_step)
-                results = player.play_recording(recording)
-                summary = player.get_results_summary()
+        player.set_callbacks(on_step=on_step)
+        try:
+            results = player.play_recording(recording)
+            summary = player.get_results_summary()
 
-                # Update task status
-                storage.update_task(
-                    task_id,
-                    status="completed" if summary["failed"] == 0 else "failed",
-                    results=[r.to_dict() for r in results],
-                )
-                socketio.emit("task:complete", {
-                    "task_id": task_id,
-                    "summary": summary,
-                })
-            except Exception as e:
-                storage.update_task(task_id, status="failed")
-                socketio.emit("task:error", {"task_id": task_id, "error": str(e)})
+            # Update task status
+            storage.update_task(
+                task_id,
+                status="completed" if summary["failed"] == 0 else "failed",
+                results=[r.to_dict() for r in results],
+            )
+            socketio.emit("task:complete", {
+                "task_id": task_id,
+                "summary": summary,
+            })
+        except Exception as e:
+            storage.update_task(task_id, status="failed")
+            socketio.emit("task:error", {"task_id": task_id, "error": str(e)})
 
     storage.update_task(task_id, status="running")
     _play_thread = threading.Thread(target=task_worker, daemon=True)

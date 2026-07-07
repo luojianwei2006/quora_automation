@@ -348,6 +348,10 @@ class BrowserEngine:
         r = self._send_command("refresh", {})
         return r.get("success", False)
 
+    def execute_forward(self) -> bool:
+        r = self._send_command("forward", {})
+        return r.get("success", False)
+
     def execute_copy(self) -> bool:
         r = self._send_command("copy", {})
         return r.get("success", False)
@@ -672,6 +676,8 @@ class BrowserEngine:
                             result["href_found"] = nav_href or ""
                         _random_micro_pause()
                         result["success"] = True
+
+                    elif cmd == "longpress":
                         _random_micro_pause()
                         x, y = params["x"], params["y"]
                         _human_mouse_move(x, y)
@@ -740,6 +746,11 @@ class BrowserEngine:
                     elif cmd == "refresh":
                         page.reload(wait_until="domcontentloaded")
                         time.sleep(random.uniform(0.5, 1.0))
+                        result["success"] = True
+
+                    elif cmd == "forward":
+                        page.go_forward(wait_until="domcontentloaded")
+                        time.sleep(random.uniform(0.3, 0.8))
                         result["success"] = True
 
                     elif cmd == "copy":

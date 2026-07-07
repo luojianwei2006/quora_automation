@@ -138,6 +138,9 @@ class PlayerEngine:
             elif action.type == ActionType.BACK:
                 success = self.browser.execute_back()
 
+            elif action.type == ActionType.FORWARD:
+                success = self.browser.execute_forward()
+
             elif action.type == ActionType.REFRESH:
                 success = self.browser.execute_refresh()
 
