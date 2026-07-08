@@ -88,7 +88,7 @@ git clone https://github.com/luojianwei2006/quora_automation.git
 cd quora_automation
 
 # Install Python dependencies
-pip install flask flask-socketio eventlet pillow playwright
+pip install -r requirements.txt
 
 # Install Chromium browser
 python -m playwright install chromium
@@ -97,7 +97,7 @@ python -m playwright install chromium
 python app.py
 ```
 
-The server starts at `http://localhost:5000`. Open your browser to start using the system.
+The server starts at `http://localhost:5050` (default port; override with the `PORT` environment variable). Open your browser to start using the system.
 
 ### Pages
 
@@ -115,10 +115,10 @@ Click the 🌐 button in the top-right corner of any page, or use the API:
 
 ```bash
 # Switch to Chinese
-curl -X POST http://localhost:5000/api/lang/set -H 'Content-Type: application/json' -d '{"lang":"zh"}'
+curl -X POST http://localhost:5050/api/lang/set -H 'Content-Type: application/json' -d '{"lang":"zh"}'
 
 # Switch to English
-curl -X POST http://localhost:5000/api/lang/set -H 'Content-Type: application/json' -d '{"lang":"en"}'
+curl -X POST http://localhost:5050/api/lang/set -H 'Content-Type: application/json' -d '{"lang":"en"}'
 ```
 
 ## Workflow
@@ -166,7 +166,7 @@ Open `android-app/` in Android Studio to build the APK.
 - AGP 8.1.1 (configured in `build.gradle`)
 - Android SDK 34 (compileSdk)
 
-The app connects to the Flask backend at `http://10.0.2.2:5000` by default (Android emulator localhost alias). Change this in `ApiClient.java` for physical devices.
+The app connects to the Flask backend at `http://10.0.2.2:5050` by default (Android emulator localhost alias). Change this in `ApiClient.java` for physical devices.
 
 ### ADB Commands
 
@@ -181,8 +181,8 @@ adb install -r app-debug.apk
 adb shell am start -n com.quora.automation/.ui.MainActivity
 
 # The backend also provides ADB management via API:
-curl http://localhost:5000/api/adb/devices
-curl http://localhost:5000/api/adb/status
+curl http://localhost:5050/api/adb/devices
+curl http://localhost:5050/api/adb/status
 ```
 
 ## API Endpoints
