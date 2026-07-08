@@ -2,3 +2,16 @@ data/
 __pycache__/
 *.pyc
 .DS_Store
+
+# --- WorkBuddy 内部工作区（记忆/索引，不入库）---
+.workbuddy/
+
+# --- Android 构建产物 / IDE 缓存 ---
+android-app/.gradle/
+android-app/.idea/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
+android-app/gradle/wrapper/gradle-wrapper.jar
+android-app/gradlew
+android-app/gradlew.bat
