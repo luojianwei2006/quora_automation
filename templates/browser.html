@@ -511,6 +511,49 @@
         }
         .status-dot.online { background: #4CAF50; }
         .status-dot.offline { background: #f44336; }
+
+        /* ─── Load Recording Modal (premium list, replaces native prompt) ─── */
+        #loadRecordingModal .modal-content {
+            width: 480px;
+            border: 1px solid rgba(255,255,255,0.08);
+            animation: lrPop 0.22s cubic-bezier(0.16,1,0.3,1);
+        }
+        @keyframes lrPop {
+            from { opacity: 0; transform: translateY(12px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .lr-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 14px;
+        }
+        .lr-header h3 { margin: 0; font-size: 18px; color: #fff; }
+        .lr-close {
+            background: transparent; border: none; color: #aaa; font-size: 20px;
+            cursor: pointer; line-height: 1; padding: 4px 8px; border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .lr-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .lr-search {
+            width: 100%; box-sizing: border-box; padding: 10px 12px; margin-bottom: 12px;
+            background: #1f1f1f; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+            color: #eee; font-size: 14px; outline: none; transition: border-color 0.2s;
+        }
+        .lr-search:focus { border-color: #2196F3; }
+        .lr-list { display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; }
+        .lr-item {
+            display: flex; flex-direction: column; gap: 4px; padding: 12px 14px;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px; cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
+        }
+        .lr-item:hover {
+            background: rgba(33,150,243,0.12); border-color: rgba(33,150,243,0.4);
+            transform: translateX(4px);
+        }
+        .lr-item-name { color: #fff; font-size: 15px; font-weight: 600; }
+        .lr-item-meta { color: #999; font-size: 12px; }
+        .lr-empty { color: #888; text-align: center; padding: 30px 10px; font-size: 14px; }
+        .lr-empty span { display: block; font-size: 32px; margin-bottom: 8px; }
     </style>
 </head>
 <body>
@@ -1988,25 +2031,67 @@
             }
         }
 
+        let _allRecordings = [];
         async function loadRecordingUI() {
             try {
                 const res = await fetch('/api/recordings');
                 const data = await res.json();
-                const recordings = data.recordings || [];
-                if (recordings.length === 0) {
-                    alert('No saved recordings found.');
-                    return;
-                }
-                const list = recordings.map(r =>
-                    `${r.id}: ${r.name} (${(r.actions || []).length} steps, ${r.created_at})`
-                ).join('\n');
-                const id = prompt(`Select recording ID to load:\n\n${list}`);
-                if (!id) return;
-                await loadRecording(id.trim());
+                _allRecordings = data.recordings || [];
+                renderRecordingList(_allRecordings);
+                openLoadRecordingModal();
             } catch(e) {
-                alert('Error: ' + e.message);
+                setBrowserStatus('❌ Error: ' + e.message);
             }
         }
+
+        function openLoadRecordingModal() {
+            const s = document.getElementById('lrSearch');
+            if (s) s.value = '';
+            document.getElementById('loadRecordingModal').classList.add('show');
+        }
+        function closeLoadRecordingModal() {
+            document.getElementById('loadRecordingModal').classList.remove('show');
+        }
+        function renderRecordingList(recordings) {
+            const list = document.getElementById('lrList');
+            if (!recordings.length) {
+                list.innerHTML = '<div class="lr-empty"><span>📭</span>No saved recordings yet</div>';
+                return;
+            }
+            list.innerHTML = recordings.map(r => `
+                <div class="lr-item" onclick="selectRecording('${escapeAttr(r.id)}')">
+                    <div class="lr-item-name">${escapeHtml(r.name || r.id)}</div>
+                    <div class="lr-item-meta">${(r.actions || []).length} steps · ${escapeHtml(r.created_at || '')}</div>
+                </div>
+            `).join('');
+        }
+        function filterRecordings() {
+            const q = (document.getElementById('lrSearch').value || '').trim().toLowerCase();
+            const filtered = _allRecordings.filter(r =>
+                (r.name || '').toLowerCase().includes(q) || String(r.id || '').toLowerCase().includes(q)
+            );
+            renderRecordingList(filtered);
+        }
+        async function selectRecording(id) {
+            closeLoadRecordingModal();
+            await loadRecording(id);
+        }
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function escapeAttr(str) {
+            return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+        function setBrowserStatus(msg) {
+            const el = document.getElementById('browserStatusMsg');
+            if (el) el.textContent = msg;
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const m = document.getElementById('loadRecordingModal');
+                if (m && m.classList.contains('show')) closeLoadRecordingModal();
+            }
+        });
 
         async function loadRecording(id) {
             try {
@@ -2032,10 +2117,10 @@
                     }));
                     renderActions();
                     updateActionCount();
-                    alert(`Loaded: ${data.recording.name}`);
+                    setBrowserStatus('✅ Loaded: ' + data.recording.name);
                 }
             } catch(e) {
-                alert('Error loading: ' + e.message);
+                setBrowserStatus('❌ Error: ' + e.message);
             }
         }
 
@@ -2156,5 +2241,18 @@
         console.log('💡 Right-click on the phone screen to record actions');
         console.log('💡 Click on actions in the list to edit them');
     </script>
+
+    <!-- Load Recording Modal: custom optimized list (replaces native prompt) -->
+    <div class="modal" id="loadRecordingModal" onclick="if(event.target===this) closeLoadRecordingModal()">
+        <div class="modal-content">
+            <div class="lr-header">
+                <h3>📂 Load Recording</h3>
+                <button class="lr-close" type="button" onclick="closeLoadRecordingModal()" title="Close">✕</button>
+            </div>
+            <input type="text" class="lr-search" id="lrSearch" placeholder="Search recordings..." oninput="filterRecordings()">
+            <div class="lr-list" id="lrList"></div>
+        </div>
+    </div>
+
 </body>
 </html>
