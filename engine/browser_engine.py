@@ -305,6 +305,17 @@ class BrowserEngine:
     def get_screenshot(self) -> Optional[str]:
         return self._cached_screenshot
 
+    def capture_after_settle(self, delay: float = 1.0) -> Optional[str]:
+        """Wait for the page to settle (network idle), then delay, then take a fresh screenshot.
+
+        Avoids capturing a mid-transition frame immediately after an action fires.
+        """
+        try:
+            self._send_command("capture_settled", {"delay": delay})
+        except Exception:
+            pass
+        return self.get_screenshot()
+
     def get_page_info(self) -> dict:
         return self._cached_info
 
@@ -751,6 +762,28 @@ class BrowserEngine:
                     elif cmd == "forward":
                         page.go_forward(wait_until="domcontentloaded")
                         time.sleep(random.uniform(0.3, 0.8))
+                        result["success"] = True
+
+                    elif cmd == "capture_settled":
+                        # Wait for the page to settle after the triggered event,
+                        # then delay briefly before capturing a fresh screenshot so
+                        # we don't grab a mid-transition frame.
+                        try:
+                            try:
+                                page.wait_for_load_state("networkidle", timeout=3000)
+                            except Exception:
+                                pass
+                            time.sleep(params.get("delay", 1.0))
+                            screenshot_bytes = page.screenshot(type="png", full_page=False)
+                            os.makedirs(self._screenshot_dir, exist_ok=True)
+                            timestamp = int(time.time() * 1000)
+                            filepath = os.path.join(self._screenshot_dir, f"screenshot_{timestamp}.png")
+                            with open(filepath, "wb") as f:
+                                f.write(screenshot_bytes)
+                            b64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+                            self._cached_screenshot = f"data:image/png;base64,{b64}"
+                        except Exception:
+                            pass
                         result["success"] = True
 
                     elif cmd == "copy":

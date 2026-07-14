@@ -135,4 +135,41 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// ─── Screenshot Lightbox (click thumbnail to enlarge) ──
+function openScreenshotLightbox(src) {
+    if (!src) return;
+    let box = document.getElementById('screenshotLightbox');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'screenshotLightbox';
+        box.className = 'screenshot-lightbox';
+        box.innerHTML = '<div class="sl-backdrop"></div>'
+            + '<img class="sl-img" alt="Screenshot preview">'
+            + '<button class="sl-close" aria-label="Close">✕</button>';
+        document.body.appendChild(box);
+        box.addEventListener('click', (e) => {
+            if (e.target === box
+                || e.target.classList.contains('sl-backdrop')
+                || e.target.classList.contains('sl-close')) {
+                box.style.display = 'none';
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') box.style.display = 'none';
+        });
+    }
+    box.querySelector('.sl-img').src = src;
+    box.style.display = 'flex';
+}
+
+// Event delegation: clicking any screenshot thumbnail enlarges it
+document.addEventListener('click', (e) => {
+    const cell = e.target.closest('.screenshot-thumb, .shot-item');
+    if (!cell) return;
+    const img = cell.querySelector('img');
+    if (img && img.getAttribute('src')) {
+        openScreenshotLightbox(img.src);
+    }
+});
+
 console.log('📱 Quora Reply Automation JS loaded');

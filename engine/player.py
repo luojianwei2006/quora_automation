@@ -190,9 +190,14 @@ class PlayerEngine:
                     success = False
                     error_msg = f"Completion check failed: {action.completion_check_type}={action.completion_check_value}"
 
-            # Take screenshot after each step
+            # Take screenshot after each step — wait for the triggered event/page
+            # to settle (network idle) and add a short delay so we don't capture a
+            # mid-transition frame right after the action fires.
             if self._screenshot_every_step or action.type == ActionType.SCREENSHOT:
-                screenshot = self.browser.get_screenshot()
+                try:
+                    screenshot = self.browser.capture_after_settle(delay=1.0)
+                except Exception:
+                    screenshot = self.browser.get_screenshot()
 
             result.success = success
             result.error = error_msg

@@ -341,11 +341,14 @@ a:hover { text-decoration: underline; }
     margin-top: 16px;
 }
 
-/* ─── Screenshot Grid ──────────────────────────────────── */
+/* ─── Screenshot Grid (4 columns) ─────────────────────── */
 .screenshot-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
+}
+@media (max-width: 600px) {
+    .screenshot-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .screenshot-thumb {
     aspect-ratio: 9/16;
@@ -353,12 +356,57 @@ a:hover { text-decoration: underline; }
     border-radius: 6px;
     border: 1px solid #333;
     background: #000;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s;
+}
+.screenshot-thumb:hover {
+    transform: translateY(-3px) scale(1.03);
+    border-color: #4CAF50;
 }
 .screenshot-thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    pointer-events: none;
 }
+
+/* ─── Screenshot Lightbox (click to enlarge) ──────────── */
+.screenshot-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.88);
+    backdrop-filter: blur(6px);
+    animation: slFade 0.2s ease;
+}
+.screenshot-lightbox .sl-img {
+    max-width: 92vw;
+    max-height: 90vh;
+    border-radius: 10px;
+    box-shadow: 0 10px 60px rgba(0, 0, 0, 0.6);
+    object-fit: contain;
+    animation: slPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.screenshot-lightbox .sl-close {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.screenshot-lightbox .sl-close:hover { background: rgba(255, 255, 255, 0.25); }
+@keyframes slFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* ─── Result List ──────────────────────────────────────── */
 .result-list { display: flex; flex-direction: column; gap: 4px; }

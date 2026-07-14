@@ -437,7 +437,7 @@
         /* Screenshot gallery */
         .screenshot-thumbs {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(4, 1fr);
             gap: 4px;
             overflow-y: auto;
             flex: 1;
@@ -448,10 +448,16 @@
             overflow: hidden;
             border: 1px solid #333;
             cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s;
+        }
+        .screenshot-thumbs .shot-item:hover {
+            transform: translateY(-3px) scale(1.04);
+            border-color: #4CAF50;
         }
         .screenshot-thumbs .shot-item img {
             width: 100%;
             display: block;
+            pointer-events: none;
         }
         .screenshot-thumbs .shot-item .shot-time {
             position: absolute;
@@ -994,16 +1000,7 @@
                 var shot = screenshotHistory[i];
                 var item = document.createElement('div');
                 item.className = 'shot-item';
-                item.title = 'Click to view full size';
-                item.onclick = (function(dataUrl) {
-                    return function() {
-                        var img = document.getElementById('browserScreenshot');
-                        img.src = dataUrl;
-                        img.style.display = 'block';
-                        document.getElementById('browserPlaceholder').style.display = 'none';
-                        switchTab('screenshots');
-                    };
-                })(shot.dataUrl);
+                item.title = 'Click to enlarge';
                 item.innerHTML = '<img src="' + shot.dataUrl + '" alt="Screenshot"><div class="shot-time">' + shot.time + '</div>';
                 container.appendChild(item);
             }
